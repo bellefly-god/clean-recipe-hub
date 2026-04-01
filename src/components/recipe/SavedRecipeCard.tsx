@@ -29,7 +29,7 @@ export function SavedRecipeCard({ recipe, onDelete }: SavedRecipeCardProps) {
       </div>
 
       <div className="mt-4 flex gap-2">
-        <Link to={`/recipe/${recipe.id}`} className="flex-1">
+        <Link to={`/saved/${recipe.id}`} className="flex-1">
           <Button variant="secondary" size="sm" className="w-full rounded-lg">
             <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
             Open

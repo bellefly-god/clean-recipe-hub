@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/shared/utils/errors";
 import { Loader2 } from "lucide-react";
 
 export function AuthForm() {
@@ -32,8 +33,8 @@ export function AuthForm() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-    } catch (err: any) {
-      toast({ variant: "destructive", description: err.message ?? "Something went wrong." });
+    } catch (error) {
+      toast({ variant: "destructive", description: getErrorMessage(error, "Something went wrong.") });
     } finally {
       setLoading(false);
     }

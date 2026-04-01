@@ -1,16 +1,23 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Loader2 } from "lucide-react";
 
 interface UrlInputProps {
+  initialValue?: string;
   onSubmit: (url: string) => void;
   loading?: boolean;
   remainingUses?: number | null;
 }
 
-export function UrlInput({ onSubmit, loading, remainingUses }: UrlInputProps) {
+export function UrlInput({ initialValue = "", onSubmit, loading, remainingUses }: UrlInputProps) {
   const [url, setUrl] = useState("");
+
+  useEffect(() => {
+    if (initialValue) {
+      setUrl(initialValue);
+    }
+  }, [initialValue]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();

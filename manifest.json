@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Recipe Cleaner",
+  "description": "Open the current recipe page in a clean Chrome side panel.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Open Recipe Cleaner"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
+  },
+  "options_page": "src/options/index.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { BookOpen, Settings, User, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -40,25 +40,23 @@ export function Navbar() {
             </Link>
           )}
 
-          {user ? (
-            <Link to="/settings">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={isActive("/settings") ? "text-foreground" : "text-muted-foreground"}
-              >
-                <Settings className="h-4 w-4" />
+          <Link to="/settings">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={isActive("/settings") ? "text-foreground" : "text-muted-foreground"}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </Link>
+
+          {!user && !loading && (
+            <Link to="/auth">
+              <Button variant="ghost" size="sm" className="text-muted-foreground">
+                <LogIn className="mr-1 h-4 w-4" />
+                Sign in
               </Button>
             </Link>
-          ) : (
-            !loading && (
-              <Link to="/auth">
-                <Button variant="ghost" size="sm" className="text-muted-foreground">
-                  <LogIn className="mr-1 h-4 w-4" />
-                  Sign in
-                </Button>
-              </Link>
-            )
           )}
         </div>
       </nav>
