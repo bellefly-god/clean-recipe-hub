@@ -10,4 +10,6 @@ export interface PageContext {
   description?: string;
   canonicalUrl?: string;
   siteName?: string;
+  jsonLdBlocks?: string[];
+  htmlSnapshot?: string;
 }

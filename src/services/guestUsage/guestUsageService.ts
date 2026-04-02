@@ -1,4 +1,4 @@
-import { GUEST_USAGE_KEY, MAX_GUEST_USES } from "@/lib/constants";
+import { GUEST_USAGE_KEY, GUEST_USAGE_LIMIT_DISABLED, MAX_GUEST_USES } from "@/lib/constants";
 import { getLocalStorageValue, isExtensionEnvironment, setLocalStorageValue } from "@/shared/utils/chrome";
 
 function readFallbackValue() {
@@ -19,6 +19,10 @@ function writeFallbackValue(value: number) {
 }
 
 export async function getGuestUsageCount() {
+  if (GUEST_USAGE_LIMIT_DISABLED) {
+    return 0;
+  }
+
   if (isExtensionEnvironment()) {
     return (await getLocalStorageValue<number>(GUEST_USAGE_KEY)) ?? 0;
   }
@@ -27,6 +31,10 @@ export async function getGuestUsageCount() {
 }
 
 export async function incrementGuestUsage() {
+  if (GUEST_USAGE_LIMIT_DISABLED) {
+    return 0;
+  }
+
   const current = await getGuestUsageCount();
   const next = current + 1;
 
@@ -40,9 +48,17 @@ export async function incrementGuestUsage() {
 }
 
 export async function getRemainingGuestUses() {
+  if (GUEST_USAGE_LIMIT_DISABLED) {
+    return MAX_GUEST_USES;
+  }
+
   return Math.max(0, MAX_GUEST_USES - (await getGuestUsageCount()));
 }
 
 export async function hasGuestUsesRemaining() {
+  if (GUEST_USAGE_LIMIT_DISABLED) {
+    return true;
+  }
+
   return (await getGuestUsageCount()) < MAX_GUEST_USES;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bookmark, Link2, ListChecks, Zap } from "lucide-react";
+import { Bookmark, FileText, Link2, ListChecks, Newspaper, Sparkles, Zap } from "lucide-react";
+import { ArticleAnalysisResult } from "@/components/article/ArticleAnalysisResult";
 import { UrlInput } from "@/components/recipe/UrlInput";
 import { RecipeLoadingSkeleton } from "@/components/recipe/RecipeLoadingSkeleton";
 import { RecipeResult } from "@/components/recipe/RecipeResult";
@@ -11,54 +12,79 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { getRemainingGuestUses, hasGuestUsesRemaining, incrementGuestUsage } from "@/services/guestUsage/guestUsageService";
 import { parseRecipeFromUrl } from "@/services/recipeParser/recipeParserService";
 import { saveRecipe } from "@/services/savedRecipes/savedRecipesService";
+import { parseArticleFromUrl } from "@/services/articleParser/articleParserService";
+import { summarizeArticle } from "@/services/aiSummary/aiSummaryService";
+import type { AISummaryResult } from "@/services/aiSummary/types";
 import type { BrowserTabInfo, PageContext } from "@/shared/types/extension";
 import { getErrorMessage } from "@/shared/utils/errors";
-import { getActiveTab, getPageContextFromTab } from "@/shared/utils/chrome";
+import { getActiveTab, getPageContextFromTab, observeActiveTabChanges } from "@/shared/utils/chrome";
 import { isHttpUrl, isRestrictedBrowserUrl } from "@/shared/utils/url";
+import type { ArticleContent } from "@/types/article";
 import type { Recipe } from "@/types/recipe";
 
 type PageState = "idle" | "loading" | "result" | "error" | "limit" | "unsupported";
+type CleanerMode = "recipe" | "article";
+
+function normalizeComparableUrl(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    const normalized = new URL(value);
+    normalized.hash = "";
+    return normalized.toString().replace(/\/$/, "");
+  } catch {
+    return value;
+  }
+}
 
 export function RecipeCleanerPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [mode, setMode] = useState<CleanerMode>("recipe");
   const [state, setState] = useState<PageState>("idle");
   const [recipe, setRecipe] = useState<Omit<Recipe, "id" | "createdAt"> | null>(null);
+  const [article, setArticle] = useState<ArticleContent | null>(null);
+  const [articleSummary, setArticleSummary] = useState<AISummaryResult | null>(null);
   const [error, setError] = useState("");
   const [remaining, setRemaining] = useState<number | null>(null);
   const [currentUrl, setCurrentUrl] = useState("");
   const [activeTab, setActiveTab] = useState<BrowserTabInfo | null>(null);
   const [pageContext, setPageContext] = useState<PageContext | null>(null);
-  const didHydrateRef = useRef(false);
+  const currentUrlRef = useRef("");
+  const previousActiveUrlRef = useRef("");
 
   useEffect(() => {
     void getRemainingGuestUses().then(setRemaining);
   }, []);
 
   useEffect(() => {
-    if (didHydrateRef.current) {
-      return;
-    }
-
-    didHydrateRef.current = true;
-
-    void (async () => {
+    const refreshActiveTab = async () => {
       const tab = await getActiveTab();
       setActiveTab(tab);
 
       if (!tab?.url) {
+        setPageContext(null);
         return;
       }
 
       if (isRestrictedBrowserUrl(tab.url)) {
         setState("unsupported");
         setError("Recipe Cleaner can only read normal web pages. Open a recipe site, then try again.");
+        setPageContext(null);
         return;
       }
 
-      if (isHttpUrl(tab.url)) {
+      if (isHttpUrl(tab.url) && (currentUrlRef.current === "" || currentUrlRef.current === previousActiveUrlRef.current)) {
         setCurrentUrl(tab.url);
+        currentUrlRef.current = tab.url;
       }
+
+      previousActiveUrlRef.current = tab.url;
+
+      setState((currentState) => (currentState === "unsupported" ? "idle" : currentState));
+      setError("");
 
       const tabPageContext = await getPageContextFromTab(tab.id);
       setPageContext(
@@ -67,8 +93,38 @@ export function RecipeCleanerPage() {
           title: tab.title ?? "Untitled page",
         },
       );
-    })();
+    };
+
+    void refreshActiveTab();
+    const stopObserving = observeActiveTabChanges(refreshActiveTab);
+
+    return stopObserving;
   }, []);
+
+  const getFreshPageContextForUrl = async (url: string) => {
+    const activeTabSnapshot = await getActiveTab();
+
+    if (!activeTabSnapshot?.id || !activeTabSnapshot.url) {
+      return pageContext;
+    }
+
+    const targetUrl = normalizeComparableUrl(url);
+    const activeTabUrl = normalizeComparableUrl(activeTabSnapshot.url);
+
+    if (targetUrl !== activeTabUrl) {
+      return pageContext;
+    }
+
+    const refreshedPageContext = await getPageContextFromTab(activeTabSnapshot.id);
+
+    if (refreshedPageContext) {
+      setActiveTab(activeTabSnapshot);
+      setPageContext(refreshedPageContext);
+      return refreshedPageContext;
+    }
+
+    return pageContext;
+  };
 
   const handleClean = async (url: string) => {
     if (!user && !(await hasGuestUsesRemaining())) {
@@ -93,7 +149,51 @@ export function RecipeCleanerPage() {
     }
 
     setRecipe(result.recipe);
+    setArticle(null);
+    setArticleSummary(null);
     setCurrentUrl(url);
+    currentUrlRef.current = url;
+    setState("result");
+  };
+
+  const handleAnalyzeArticle = async (url: string) => {
+    if (!user && !(await hasGuestUsesRemaining())) {
+      setState("limit");
+      return;
+    }
+
+    setState("loading");
+    setError("");
+
+    const latestPageContext = await getFreshPageContextForUrl(url);
+    const articleResult = await parseArticleFromUrl(url, { pageContext: latestPageContext });
+
+    if (!articleResult.success || !articleResult.article) {
+      setState("error");
+      setError(articleResult.error ?? "We couldn't extract readable article content from this page.");
+      return;
+    }
+
+    const summaryResult = await summarizeArticle({
+      article: articleResult.article,
+    });
+
+    if (!summaryResult.success || !summaryResult.summary) {
+      setState("error");
+      setError(summaryResult.error ?? "We couldn't generate an AI summary for this page.");
+      return;
+    }
+
+    if (!user) {
+      await incrementGuestUsage();
+      setRemaining(await getRemainingGuestUses());
+    }
+
+    setRecipe(null);
+    setArticle(articleResult.article);
+    setArticleSummary(summaryResult.summary);
+    setCurrentUrl(url);
+    currentUrlRef.current = url;
     setState("result");
   };
 
@@ -116,22 +216,65 @@ export function RecipeCleanerPage() {
 
   const handleBack = () => {
     setRecipe(null);
+    setArticle(null);
+    setArticleSummary(null);
     setState("idle");
+  };
+
+  const handlePrimarySubmit = (url: string) => {
+    if (mode === "article") {
+      void handleAnalyzeArticle(url);
+      return;
+    }
+
+    void handleClean(url);
   };
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
       {state === "idle" && (
         <div className="animate-fade-in space-y-8 text-center">
+          <div className="mx-auto flex max-w-xs rounded-2xl border bg-card p-1 shadow-soft">
+            <Button
+              type="button"
+              variant={mode === "recipe" ? "default" : "ghost"}
+              className="flex-1 rounded-xl"
+              onClick={() => setMode("recipe")}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Recipe
+            </Button>
+            <Button
+              type="button"
+              variant={mode === "article" ? "default" : "ghost"}
+              className="flex-1 rounded-xl"
+              onClick={() => setMode("article")}
+            >
+              <Newspaper className="mr-2 h-4 w-4" />
+              Article
+            </Button>
+          </div>
+
           <div className="space-y-4">
             <h1 className="font-display text-4xl leading-tight text-foreground sm:text-5xl">
-              Clean any recipe,
-              <br />
-              <span className="text-accent">instantly.</span>
+              {mode === "recipe" ? (
+                <>
+                  Clean any recipe,
+                  <br />
+                  <span className="text-accent">instantly.</span>
+                </>
+              ) : (
+                <>
+                  Analyze any article,
+                  <br />
+                  <span className="text-accent">in seconds.</span>
+                </>
+              )}
             </h1>
             <p className="mx-auto max-w-md text-lg text-muted-foreground">
-              The current tab URL is ready below. Clean the recipe into a distraction-free format
-              with the existing parser flow.
+              {mode === "recipe"
+                ? "The current tab URL is ready below. Clean the recipe into a distraction-free format with the existing parser flow."
+                : "The current tab URL is ready below. Extract the readable article content and generate an AI summary with key points and action items."}
             </p>
           </div>
 
@@ -148,15 +291,28 @@ export function RecipeCleanerPage() {
           <div className="mx-auto max-w-xl">
             <UrlInput
               initialValue={currentUrl}
-              onSubmit={handleClean}
+              onSubmit={handlePrimarySubmit}
               remainingUses={user ? null : remaining}
+              placeholder={mode === "recipe" ? "Paste a recipe link…" : "Paste an article link…"}
+              submitLabel={mode === "recipe" ? "Clean Recipe" : "Analyze Page"}
+              loadingLabel={mode === "recipe" ? "Cleaning…" : "Analyzing…"}
             />
           </div>
 
           <div className="mx-auto grid max-w-lg gap-6 pt-2 sm:grid-cols-3">
-            <Benefit icon={<Zap className="h-5 w-5" />} title="Remove clutter" description="No ads, pop-ups, or life-story filler" />
-            <Benefit icon={<ListChecks className="h-5 w-5" />} title="Clean format" description="Ingredients and steps, nothing else" />
-            <Benefit icon={<Bookmark className="h-5 w-5" />} title="Save recipes" description="Signed-in users can persist recipes to Supabase" />
+            {mode === "recipe" ? (
+              <>
+                <Benefit icon={<Zap className="h-5 w-5" />} title="Remove clutter" description="No ads, pop-ups, or life-story filler" />
+                <Benefit icon={<ListChecks className="h-5 w-5" />} title="Clean format" description="Ingredients and steps, nothing else" />
+                <Benefit icon={<Bookmark className="h-5 w-5" />} title="Save recipes" description="Signed-in users can persist recipes to Supabase" />
+              </>
+            ) : (
+              <>
+                <Benefit icon={<FileText className="h-5 w-5" />} title="Readable text" description="Extract the main article from the current page" />
+                <Benefit icon={<ListChecks className="h-5 w-5" />} title="AI key points" description="Get a short summary and structured takeaways" />
+                <Benefit icon={<Zap className="h-5 w-5" />} title="Fast review" description="Scan long pages before deciding what to read in full" />
+              </>
+            )}
           </div>
         </div>
       )}
@@ -170,8 +326,12 @@ export function RecipeCleanerPage() {
         </div>
       )}
 
-      {state === "result" && recipe && (
+      {state === "result" && mode === "recipe" && recipe && (
         <RecipeResult recipe={recipe} onBack={handleBack} onSave={handleSave} canSave={!!user} />
+      )}
+
+      {state === "result" && mode === "article" && article && articleSummary && (
+        <ArticleAnalysisResult article={article} summary={articleSummary} onBack={handleBack} />
       )}
 
       {state === "error" && (

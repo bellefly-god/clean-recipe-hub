@@ -1,5 +1,14 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_OPENROUTER_API_KEY?: string;
+  readonly VITE_OPENROUTER_MODEL?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 interface ChromeLike {
   action?: {
     onClicked: {
@@ -39,6 +48,26 @@ interface ChromeLike {
       message: unknown,
       responseCallback: (response?: unknown) => void,
     ) => void;
+    onActivated: {
+      addListener: (callback: () => void) => void;
+      removeListener: (callback: () => void) => void;
+    };
+    onUpdated: {
+      addListener: (
+        callback: (
+          tabId: number,
+          changeInfo: { status?: string; url?: string; title?: string },
+          tab: { active?: boolean },
+        ) => void,
+      ) => void;
+      removeListener: (
+        callback: (
+          tabId: number,
+          changeInfo: { status?: string; url?: string; title?: string },
+          tab: { active?: boolean },
+        ) => void,
+      ) => void;
+    };
   };
 }
 

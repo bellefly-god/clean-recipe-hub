@@ -1,6 +1,8 @@
 import { GET_PAGE_CONTEXT, type ExtensionRequest, type ExtensionResponse } from "@/shared/messaging/messages";
 import type { BrowserTabInfo, PageContext } from "@/shared/types/extension";
 
+type ActiveTabChangeCallback = () => void | Promise<void>;
+
 export function isExtensionEnvironment() {
   return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id);
 }
@@ -41,6 +43,38 @@ export async function getPageContextFromTab(tabId?: number): Promise<PageContext
       resolve(response.pageContext);
     });
   });
+}
+
+export function observeActiveTabChanges(callback: ActiveTabChangeCallback) {
+  if (!isExtensionEnvironment() || !chrome.tabs?.onActivated || !chrome.tabs?.onUpdated) {
+    return () => {};
+  }
+
+  const handleActivated = () => {
+    void callback();
+  };
+
+  const handleUpdated = (
+    _tabId: number,
+    changeInfo: { status?: string; url?: string; title?: string },
+    tab: { active?: boolean },
+  ) => {
+    if (!tab.active) {
+      return;
+    }
+
+    if (changeInfo.status === "complete" || changeInfo.url || changeInfo.title) {
+      void callback();
+    }
+  };
+
+  chrome.tabs.onActivated.addListener(handleActivated);
+  chrome.tabs.onUpdated.addListener(handleUpdated);
+
+  return () => {
+    chrome.tabs?.onActivated?.removeListener(handleActivated);
+    chrome.tabs?.onUpdated?.removeListener(handleUpdated);
+  };
 }
 
 export async function getLocalStorageValue<T>(key: string): Promise<T | null> {

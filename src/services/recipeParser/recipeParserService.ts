@@ -1,19 +1,85 @@
 import type { RecipeParseResult } from "@/types/recipe";
 import type { PageContext } from "@/shared/types/extension";
 import { getDomainFromUrl, isHttpUrl } from "@/shared/utils/url";
+import { extractJsonLdRecipe } from "@/services/recipeParser/extractJsonLdRecipe";
+import { extractMicrodataRecipe } from "@/services/recipeParser/extractMicrodataRecipe";
+import { extractReadableRecipe } from "@/services/recipeParser/extractReadableRecipe";
+import { normalizeRecipeCandidate } from "@/services/recipeParser/normalizeRecipe";
+import type { ParserSource } from "@/services/recipeParser/parserTypes";
 
 interface ParseRecipeOptions {
   pageContext?: PageContext | null;
 }
 
-function getMockTitle(pageContext: PageContext | null | undefined, domain: string) {
-  const pageTitle = pageContext?.title?.trim();
+function normalizeComparableUrl(value: string) {
+  try {
+    const normalized = new URL(value);
+    normalized.hash = "";
+    return normalized.toString().replace(/\/$/, "");
+  } catch {
+    return value;
+  }
+}
 
-  if (pageTitle) {
-    return pageTitle.replace(/\s*[|\-–]\s*[^|\-–]+$/, "").trim() || pageTitle;
+function isSameRecipePage(url: string, pageContext?: PageContext | null) {
+  if (!pageContext?.url) {
+    return false;
   }
 
-  return `Cleaned recipe from ${domain}`;
+  const targetUrl = normalizeComparableUrl(url);
+  const pageUrl = normalizeComparableUrl(pageContext.url);
+  const canonicalUrl = pageContext.canonicalUrl ? normalizeComparableUrl(pageContext.canonicalUrl) : "";
+
+  return targetUrl === pageUrl || (canonicalUrl !== "" && targetUrl === canonicalUrl);
+}
+
+async function fetchRemoteHtml(url: string) {
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      credentials: "omit",
+    });
+
+    if (!response.ok) {
+      console.debug("[Recipe Parser] Remote fetch failed.", response.status, response.statusText);
+      return null;
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.includes("html")) {
+      console.debug("[Recipe Parser] Remote fetch returned non-HTML content.");
+      return null;
+    }
+
+    return await response.text();
+  } catch (error) {
+    console.debug("[Recipe Parser] Remote fetch threw an error.", error);
+    return null;
+  }
+}
+
+async function buildParserSource(url: string, pageContext?: PageContext | null): Promise<ParserSource> {
+  const sourceDomain = getDomainFromUrl(url);
+
+  if (isSameRecipePage(url, pageContext)) {
+    return {
+      url,
+      sourceDomain,
+      titleHint: pageContext?.title,
+      summaryHint: pageContext?.description,
+      html: pageContext?.htmlSnapshot,
+      jsonLdBlocks: pageContext?.jsonLdBlocks,
+    };
+  }
+
+  console.debug("[Recipe Parser] Requested URL differs from active page context. Falling back to remote fetch.");
+
+  const html = await fetchRemoteHtml(url);
+  return {
+    url,
+    sourceDomain,
+    html: html ?? undefined,
+  };
 }
 
 export async function parseRecipeFromUrl(
@@ -27,43 +93,42 @@ export async function parseRecipeFromUrl(
     };
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 900));
+  try {
+    const pageContext = options?.pageContext ?? null;
+    const parserSource = await buildParserSource(url, pageContext);
 
-  const domain = getDomainFromUrl(url);
-  const pageContext = options?.pageContext ?? null;
+    const candidate =
+      extractJsonLdRecipe(parserSource) ??
+      extractMicrodataRecipe(parserSource) ??
+      extractReadableRecipe(parserSource);
 
-  return {
-    success: true,
-    recipe: {
-      title: getMockTitle(pageContext, domain),
-      sourceUrl: url,
-      sourceDomain: domain,
-      summary:
-        pageContext?.description ||
-        "A cleaned recipe preview generated through the current parser service. Replace this mock with a real extraction API when ready.",
-      ingredients: [
-        "1 whole chicken (about 4 lbs)",
-        "2 lemons, one sliced and one juiced",
-        "4 cloves garlic, minced",
-        "2 tablespoons olive oil",
-        "1 tablespoon fresh rosemary, chopped",
-        "1 tablespoon fresh thyme leaves",
-        "1 teaspoon sea salt",
-        "1/2 teaspoon black pepper",
-        "1 large onion, quartered",
-        "4 sprigs fresh parsley",
-      ],
-      steps: [
-        "Preheat your oven to 425°F (220°C).",
-        "Pat the chicken dry with paper towels so the skin crisps properly.",
-        "Mix olive oil, lemon juice, garlic, rosemary, thyme, salt, and pepper.",
-        "Rub the mixture all over the chicken and under the skin where possible.",
-        "Stuff the cavity with lemon slices, onion, and parsley.",
-        "Roast until the thickest part reaches 165°F (74°C).",
-        "Rest for 10 minutes before carving and serving.",
-      ],
-      notes:
-        "Mock parser output. Swap this service implementation for a server-side recipe extraction API without changing the UI flow.",
-    },
-  };
+    if (!candidate) {
+      console.debug("[Recipe Parser] No recipe candidate found after all parser stages.");
+      return {
+        success: false,
+        error: "This page doesn't appear to contain a recipe we can extract yet.",
+      };
+    }
+
+    const recipe = normalizeRecipeCandidate(candidate, parserSource);
+
+    if (!recipe) {
+      console.debug("[Recipe Parser] Candidate extracted but failed normalization.");
+      return {
+        success: false,
+        error: "We found page content, but it didn't contain a complete recipe.",
+      };
+    }
+
+    return {
+      success: true,
+      recipe,
+    };
+  } catch (error) {
+    console.error("[Recipe Parser] Extraction error.", error);
+    return {
+      success: false,
+      error: "We couldn't parse this recipe page right now. Try another page.",
+    };
+  }
 }

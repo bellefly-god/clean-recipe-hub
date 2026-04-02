@@ -8,9 +8,20 @@ interface UrlInputProps {
   onSubmit: (url: string) => void;
   loading?: boolean;
   remainingUses?: number | null;
+  placeholder?: string;
+  submitLabel?: string;
+  loadingLabel?: string;
 }
 
-export function UrlInput({ initialValue = "", onSubmit, loading, remainingUses }: UrlInputProps) {
+export function UrlInput({
+  initialValue = "",
+  onSubmit,
+  loading,
+  remainingUses,
+  placeholder = "Paste a recipe link…",
+  submitLabel = "Clean Recipe",
+  loadingLabel = "Cleaning…",
+}: UrlInputProps) {
   const [url, setUrl] = useState("");
 
   useEffect(() => {
@@ -29,7 +40,7 @@ export function UrlInput({ initialValue = "", onSubmit, loading, remainingUses }
       <div className="flex gap-2">
         <Input
           type="url"
-          placeholder="Paste a recipe link…"
+          placeholder={placeholder}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           className="h-12 flex-1 rounded-xl border-border bg-card px-4 text-base shadow-soft transition-shadow focus:shadow-card"
@@ -45,7 +56,7 @@ export function UrlInput({ initialValue = "", onSubmit, loading, remainingUses }
           ) : (
             <Sparkles className="mr-2 h-4 w-4" />
           )}
-          {loading ? "Cleaning…" : "Clean Recipe"}
+          {loading ? loadingLabel : submitLabel}
         </Button>
       </div>
 
