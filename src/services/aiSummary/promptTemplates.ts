@@ -31,3 +31,44 @@ export function buildArticleSummaryMessages(input: AISummaryInput): AISummaryMes
     },
   ];
 }
+
+export function buildArticleSummaryPrompt(input: AISummaryInput) {
+  const messages = buildArticleSummaryMessages(input);
+  return messages
+    .map((message) => `${message.role.toUpperCase()}:\n${message.content}`)
+    .join("\n\n");
+}
+
+export function getArticleSummaryJsonSchema() {
+  return {
+    type: "object",
+    properties: {
+      shortSummary: {
+        type: "string",
+        description: "A concise summary paragraph of the provided webpage content.",
+      },
+      keyPoints: {
+        type: "array",
+        description: "Important takeaways from the provided webpage content.",
+        items: {
+          type: "string",
+        },
+      },
+      actionItems: {
+        type: "array",
+        description: "Practical next steps only if the webpage content clearly suggests them.",
+        items: {
+          type: "string",
+        },
+      },
+      tags: {
+        type: "array",
+        description: "A short list of topical tags for the webpage.",
+        items: {
+          type: "string",
+        },
+      },
+    },
+    required: ["shortSummary", "keyPoints", "actionItems", "tags"],
+  };
+}

@@ -1,5 +1,7 @@
 import type { ArticleContent } from "@/types/article";
 
+export type AISummaryProviderName = "glm5" | "openrouter";
+
 export interface AISummaryResult {
   shortSummary: string;
   keyPoints: string[];

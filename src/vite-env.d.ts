@@ -1,6 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  readonly VITE_AI_SUMMARY_PROVIDER?: "glm5" | "openrouter";
+  readonly VITE_GLM5_API_KEY?: string;
+  readonly VITE_GLM5_MODEL?: string;
   readonly VITE_OPENROUTER_API_KEY?: string;
   readonly VITE_OPENROUTER_MODEL?: string;
 }
@@ -14,6 +17,12 @@ interface ChromeLike {
     onClicked: {
       addListener: (callback: (tab: { id?: number }) => void | Promise<void>) => void;
     };
+  };
+  scripting?: {
+    executeScript: (options: {
+      target: { tabId: number };
+      files?: string[];
+    }) => Promise<unknown>;
   };
   runtime: {
     id?: string;

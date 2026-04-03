@@ -31,18 +31,19 @@ export async function getPageContextFromTab(tabId?: number): Promise<PageContext
     return null;
   }
 
-  const request: ExtensionRequest = { type: GET_PAGE_CONTEXT };
+  const pageContext = await requestPageContextFromTab(tabId);
 
-  return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, request, (response?: ExtensionResponse) => {
-      if (chrome.runtime.lastError || !response?.pageContext) {
-        resolve(null);
-        return;
-      }
+  if (pageContext) {
+    return pageContext;
+  }
 
-      resolve(response.pageContext);
-    });
-  });
+  const injected = await injectContentScriptIntoTab(tabId);
+
+  if (!injected) {
+    return null;
+  }
+
+  return requestPageContextFromTab(tabId);
 }
 
 export function observeActiveTabChanges(callback: ActiveTabChangeCallback) {
@@ -92,4 +93,38 @@ export async function setLocalStorageValue<T>(key: string, value: T) {
   }
 
   await chrome.storage.local.set({ [key]: value });
+}
+
+async function requestPageContextFromTab(tabId: number): Promise<PageContext | null> {
+  const request: ExtensionRequest = { type: GET_PAGE_CONTEXT };
+
+  return new Promise((resolve) => {
+    chrome.tabs?.sendMessage?.(tabId, request, (response?: ExtensionResponse) => {
+      if (chrome.runtime.lastError || !response?.pageContext) {
+        resolve(null);
+        return;
+      }
+
+      resolve(response.pageContext);
+    });
+  });
+}
+
+async function injectContentScriptIntoTab(tabId: number) {
+  if (!chrome.scripting?.executeScript) {
+    console.debug("[Recipe Cleaner] chrome.scripting unavailable; cannot inject content script.");
+    return false;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content.js"],
+    });
+    console.debug("[Recipe Cleaner] Injected content script into tab.", tabId);
+    return true;
+  } catch (error) {
+    console.debug("[Recipe Cleaner] Failed to inject content script into tab.", tabId, error);
+    return false;
+  }
 }
