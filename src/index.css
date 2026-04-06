@@ -113,4 +113,99 @@
   .shadow-elevated {
     box-shadow: var(--shadow-elevated);
   }
+
+  .article-clean {
+    @apply text-[15px] leading-7 text-foreground;
+  }
+
+  .article-clean > * + * {
+    margin-top: 1rem;
+  }
+
+  .article-clean h1,
+  .article-clean h2,
+  .article-clean h3,
+  .article-clean h4 {
+    @apply font-display tracking-tight text-foreground;
+  }
+
+  .article-clean h1 {
+    @apply text-3xl leading-tight;
+  }
+
+  .article-clean h2 {
+    @apply mt-8 text-2xl leading-tight;
+  }
+
+  .article-clean h3 {
+    @apply mt-6 text-xl leading-tight;
+  }
+
+  .article-clean p,
+  .article-clean li,
+  .article-clean figcaption,
+  .article-clean blockquote {
+    @apply text-[15px] leading-7 text-foreground;
+  }
+
+  .article-clean ul,
+  .article-clean ol {
+    @apply ml-5 space-y-2;
+  }
+
+  .article-clean ul {
+    list-style: disc;
+  }
+
+  .article-clean ol {
+    list-style: decimal;
+  }
+
+  .article-clean blockquote {
+    @apply border-l-2 border-accent bg-secondary/50 px-4 py-3 italic text-muted-foreground;
+  }
+
+  .article-clean img {
+    @apply my-5 w-full rounded-2xl border bg-secondary object-cover shadow-soft;
+  }
+
+  .article-clean figure {
+    @apply my-6 space-y-2;
+  }
+
+  .article-clean figcaption {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .article-clean a {
+    @apply underline decoration-accent decoration-1 underline-offset-4;
+  }
+
+  .article-clean hr {
+    @apply my-6 border-border;
+  }
+
+  .article-clean pre {
+    @apply overflow-x-auto rounded-2xl bg-secondary p-4 text-sm leading-6;
+    white-space: pre;
+  }
+
+  .article-clean code {
+    @apply rounded bg-secondary/70 px-1.5 py-0.5 text-[0.92em];
+  }
+
+  .article-clean pre code {
+    @apply bg-transparent p-0 font-mono text-[13px] leading-6;
+    white-space: pre;
+  }
+
+  .article-clean table {
+    @apply my-5 w-full overflow-hidden rounded-xl border border-border text-sm;
+    border-collapse: collapse;
+  }
+
+  .article-clean th,
+  .article-clean td {
+    @apply border border-border px-3 py-2 text-left align-top;
+  }
 }

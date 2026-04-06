@@ -1,5 +1,5 @@
-import { buildArticleSummaryPrompt } from "@/services/aiSummary/promptTemplates";
-import type { AISummaryInput } from "@/services/aiSummary/types";
+import { getPromptByPageType } from "@/services/aiSummary/getPromptByPageType";
+import type { AISummaryPreparedInput } from "@/services/aiSummary/types";
 
 const GLM5_API_URL = "https://api.codexcc.top/v1/messages";
 
@@ -18,7 +18,7 @@ export function getGlm5ApiKey() {
   return import.meta.env.VITE_GLM5_API_KEY || "";
 }
 
-export async function requestGlm5Summary(input: AISummaryInput) {
+export async function requestGlm5Summary(input: AISummaryPreparedInput) {
   const apiKey = getGlm5ApiKey();
 
   if (!apiKey) {
@@ -41,7 +41,7 @@ export async function requestGlm5Summary(input: AISummaryInput) {
       messages: [
         {
           role: "user",
-          content: buildArticleSummaryPrompt(input),
+          content: getPromptByPageType(input),
         },
       ],
     }),

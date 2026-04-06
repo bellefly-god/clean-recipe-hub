@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_GLM5_MODEL?: string;
   readonly VITE_OPENROUTER_API_KEY?: string;
   readonly VITE_OPENROUTER_MODEL?: string;
+  readonly VITE_ENABLE_AI_MARKDOWN_CLEANUP?: "true" | "false";
 }
 
 interface ImportMeta {

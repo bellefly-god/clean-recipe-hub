@@ -5,6 +5,8 @@ const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 interface OpenRouterCompletionOptions {
   messages: AISummaryMessage[];
   model?: string;
+  temperature?: number;
+  responseFormat?: "json_object" | "text";
 }
 
 interface OpenRouterChoice {
@@ -45,10 +47,14 @@ export async function requestOpenRouterCompletion(options: OpenRouterCompletionO
     body: JSON.stringify({
       model: options.model || getOpenRouterModel(),
       messages: options.messages,
-      temperature: 0.2,
-      response_format: {
-        type: "json_object",
-      },
+      temperature: options.temperature ?? 0.2,
+      ...(options.responseFormat === "text"
+        ? {}
+        : {
+            response_format: {
+              type: "json_object",
+            },
+          }),
     }),
   });
 
@@ -59,4 +65,11 @@ export async function requestOpenRouterCompletion(options: OpenRouterCompletionO
 
   const data = (await response.json()) as OpenRouterResponse;
   return data.choices?.[0]?.message?.content?.trim() ?? "";
+}
+
+export async function requestOpenRouterTextCompletion(options: Omit<OpenRouterCompletionOptions, "responseFormat">) {
+  return requestOpenRouterCompletion({
+    ...options,
+    responseFormat: "text",
+  });
 }

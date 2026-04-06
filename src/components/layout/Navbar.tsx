@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { BookOpen, Settings, User, LogIn } from "lucide-react";
+import { Settings, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
@@ -13,7 +13,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
       <nav className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
         <Link to="/" className="font-display text-lg tracking-tight text-foreground">
-          Recipe Cleaner
+          Page Cleaner
         </Link>
 
         <div className="flex items-center gap-1">
@@ -26,19 +26,6 @@ export function Navbar() {
               Home
             </Button>
           </Link>
-
-          {user && (
-            <Link to="/saved">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={isActive("/saved") ? "text-foreground" : "text-muted-foreground"}
-              >
-                <BookOpen className="mr-1 h-4 w-4" />
-                Saved
-              </Button>
-            </Link>
-          )}
 
           <Link to="/settings">
             <Button

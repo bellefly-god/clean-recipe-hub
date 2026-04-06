@@ -3,8 +3,6 @@ import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "r
 import { Navbar } from "@/components/layout/Navbar";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { RecipeCleanerPage } from "@/features/recipe-cleaner/RecipeCleanerPage";
-import { SavedRecipeDetailPage } from "@/features/saved-recipes/SavedRecipeDetailPage";
-import { SavedRecipesPage } from "@/features/saved-recipes/SavedRecipesPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AppProviders } from "@/app/AppProviders";
 
@@ -39,8 +37,6 @@ export function ExtensionApp({ entry }: ExtensionAppProps) {
           <Routes>
             <Route path="/" element={<RecipeCleanerPage />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/saved" element={<SavedRecipesPage />} />
-            <Route path="/saved/:recipeId" element={<SavedRecipeDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

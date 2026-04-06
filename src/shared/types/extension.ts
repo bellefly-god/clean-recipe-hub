@@ -10,6 +10,10 @@ export interface PageContext {
   description?: string;
   canonicalUrl?: string;
   siteName?: string;
+  publishedAt?: string;
+  iframeCount?: number;
+  openShadowRootCount?: number;
+  shadowTextLength?: number;
   jsonLdBlocks?: string[];
   htmlSnapshot?: string;
 }

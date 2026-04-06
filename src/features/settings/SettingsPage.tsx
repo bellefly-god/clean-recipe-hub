@@ -45,7 +45,7 @@ export function SettingsPage() {
             </div>
           ) : (
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>Sign in to save cleaned recipes to Supabase and sync them across devices later.</p>
+              <p>Sign in to unlock account features and future sync support for cleaned pages.</p>
               <Link to="/auth">
                 <Button className="rounded-xl">
                   <LogIn className="mr-2 h-4 w-4" />
@@ -61,7 +61,7 @@ export function SettingsPage() {
             Usage
           </h2>
           <p className="text-sm text-muted-foreground">
-            Guests have used {guestUsageCount} of 3 free cleans in this browser profile.
+            Guests have used {guestUsageCount} of 3 free analyses in this browser profile.
           </p>
         </section>
 
@@ -72,7 +72,7 @@ export function SettingsPage() {
           <p className="text-sm text-muted-foreground">
             {isConfigured
               ? "Supabase env vars are configured for extension pages."
-              : "Supabase env vars are missing. Auth and saved recipes stay disabled until VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set."}
+              : "Supabase env vars are missing. Auth stays disabled until VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set."}
           </p>
         </section>
 

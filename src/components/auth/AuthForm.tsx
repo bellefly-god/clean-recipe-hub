@@ -47,7 +47,7 @@ export function AuthForm() {
           {isSignUp ? "Create your account" : "Welcome back"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {isSignUp ? "Sign up to save your recipes" : "Sign in to access your saved recipes"}
+          {isSignUp ? "Sign up to unlock account features" : "Sign in to access account features"}
         </p>
       </div>
 

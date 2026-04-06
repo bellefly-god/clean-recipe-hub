@@ -1,11 +1,15 @@
-import { buildArticleSummaryMessages } from "@/services/aiSummary/promptTemplates";
+import { detectPageType } from "@/services/aiSummary/detectPageType";
+import { detectOutputLanguage } from "@/services/aiSummary/detectOutputLanguage";
+import { buildArticleSummaryMessages } from "@/services/aiSummary/getPromptByPageType";
 import { getGlm5ApiKey, getGlm5Model, requestGlm5Summary } from "@/services/aiSummary/providers/glm5Provider";
 import { getOpenRouterModel, requestOpenRouterCompletion } from "@/services/aiSummary/providers/openrouterProvider";
 import type {
   AISummaryInput,
+  AISummaryPreparedInput,
   AISummaryProviderName,
   AISummaryResult,
   AISummaryServiceResult,
+  DetectedPageType,
 } from "@/services/aiSummary/types";
 
 function cleanText(value?: string | null) {
@@ -22,6 +26,11 @@ function normalizeArray(value: unknown) {
     .filter(Boolean);
 }
 
+function normalizeLanguage(value: unknown, fallback: string) {
+  const normalized = cleanText(typeof value === "string" ? value : "");
+  return normalized || fallback;
+}
+
 function extractJsonString(value: string) {
   const fencedMatch = value.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fencedMatch?.[1]) {
@@ -32,13 +41,39 @@ function extractJsonString(value: string) {
   return objectMatch?.[0] ?? value;
 }
 
-function parseSummaryPayload(rawOutput: string): AISummaryResult | null {
+function normalizePageType(value: unknown, fallback: DetectedPageType) {
+  return value === "recipe" ||
+    value === "news" ||
+    value === "tutorial" ||
+    value === "opinion" ||
+    value === "product" ||
+    value === "technical_article" ||
+    value === "generic"
+    ? value
+    : fallback;
+}
+
+function parseSummaryPayload(rawOutput: string, input: AISummaryPreparedInput): AISummaryResult | null {
   try {
     const parsed = JSON.parse(extractJsonString(rawOutput)) as Record<string, unknown>;
-    const shortSummary = cleanText(typeof parsed.shortSummary === "string" ? parsed.shortSummary : "");
+    const detectedLanguage = detectOutputLanguage(input.article);
+    const pageType = normalizePageType(parsed.pageType, input.pageType);
+    const language = normalizeLanguage(parsed.language, detectedLanguage.language);
+    const title = cleanText(typeof parsed.title === "string" ? parsed.title : input.article.title);
+    const shortSummary = cleanText(
+      typeof parsed.summary === "string"
+        ? parsed.summary
+        : typeof parsed.shortSummary === "string"
+          ? parsed.shortSummary
+          : "",
+    );
     const keyPoints = normalizeArray(parsed.keyPoints);
+    const categories = normalizeArray(parsed.categories);
     const actionItems = normalizeArray(parsed.actionItems);
-    const tags = normalizeArray(parsed.tags);
+    const notes = normalizeArray(parsed.notes);
+    const warnings = normalizeArray(parsed.warnings);
+    const codeNotes = normalizeArray(parsed.codeNotes);
+    const tags = Array.from(new Set([...(pageType === "generic" ? [] : [pageType]), ...categories])).slice(0, 8);
 
     if (!shortSummary || keyPoints.length === 0) {
       return null;
@@ -48,7 +83,14 @@ function parseSummaryPayload(rawOutput: string): AISummaryResult | null {
       shortSummary,
       keyPoints,
       actionItems,
+      categories,
+      notes,
       tags,
+      codeNotes,
+      language,
+      pageType,
+      title,
+      warnings,
       rawModelOutput: rawOutput,
     };
   } catch (error) {
@@ -128,20 +170,27 @@ function normalizeProviderError(error: unknown, provider: AISummaryProviderName)
 
 export async function summarizeArticle(input: AISummaryInput): Promise<AISummaryServiceResult> {
   const provider = getPreferredAISummaryProvider();
+  const detection = detectPageType(input.article);
+  const preparedInput: AISummaryPreparedInput = {
+    ...input,
+    pageType: detection.pageType,
+  };
 
   try {
     const rawOutput =
       provider === "glm5"
-        ? await requestGlm5Summary(input)
+        ? await requestGlm5Summary(preparedInput)
         : await requestOpenRouterCompletion({
             model: getOpenRouterModel(),
-            messages: buildArticleSummaryMessages(input),
+            messages: buildArticleSummaryMessages(preparedInput),
           });
 
     console.debug(
-      "[AI Summary] Requesting summary with provider/model",
+      "[AI Summary] Requesting summary with provider/model/pageType",
       provider,
       provider === "glm5" ? getGlm5Model() : getOpenRouterModel(),
+      detection.pageType,
+      detection.signals,
     );
 
     if (!rawOutput) {
@@ -151,7 +200,7 @@ export async function summarizeArticle(input: AISummaryInput): Promise<AISummary
       };
     }
 
-    const summary = parseSummaryPayload(rawOutput);
+    const summary = parseSummaryPayload(rawOutput, preparedInput);
 
     if (!summary) {
       return {
