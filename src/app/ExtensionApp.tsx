@@ -4,6 +4,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { RecipeCleanerPage } from "@/features/recipe-cleaner/RecipeCleanerPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
+import { SubscriptionPage } from "@/pages/Subscription";
 import { AppProviders } from "@/app/AppProviders";
 
 interface ExtensionAppProps {
@@ -38,6 +39,7 @@ export function ExtensionApp({ entry }: ExtensionAppProps) {
             <Route path="/" element={<RecipeCleanerPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/subscription" element={<SubscriptionPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>

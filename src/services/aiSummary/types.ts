@@ -29,6 +29,41 @@ export interface AISummaryResult {
   title?: string;
   warnings?: string[];
   rawModelOutput?: string;
+  // Recipe specific
+  ingredients?: string[];
+  prepTime?: string;
+  cookTime?: string;
+  servings?: number;
+  difficulty?: string;
+  steps?: string[];
+  // News specific
+  who?: string;
+  what?: string;
+  when?: string;
+  where?: string;
+  why?: string;
+  attribution?: string;
+  // Tutorial specific
+  problem?: string;
+  prerequisites?: string[];
+  estimatedTime?: string;
+  // Opinion specific
+  thesis?: string;
+  arguments?: string[];
+  counterpoints?: string[];
+  conclusion?: string;
+  // Product specific
+  productName?: string;
+  keyFeatures?: string[];
+  pros?: string[];
+  cons?: string[];
+  pricing?: string;
+  verdict?: string;
+  // Technical article specific
+  topic?: string;
+  technologies?: string[];
+  concepts?: string[];
+  takeaways?: string[];
 }
 
 export interface AISummaryServiceResult {

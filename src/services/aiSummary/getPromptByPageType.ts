@@ -2,10 +2,10 @@ import { PAGE_TYPE_PROMPT_TEMPLATES, getStructuredSummaryInstructions } from "@/
 import { detectOutputLanguage } from "@/services/aiSummary/detectOutputLanguage";
 import type { AISummaryMessage, AISummaryPreparedInput } from "@/services/aiSummary/types";
 
-const MAX_INPUT_CHARS = 18_000;
+const MAX_INPUT_CHARS = 35_000;
 
 function truncateContent(value: string) {
-  return value.length <= MAX_INPUT_CHARS ? value : `${value.slice(0, MAX_INPUT_CHARS)}\n\n[truncated]`;
+  return value.length <= MAX_INPUT_CHARS ? value : `${value.slice(0, MAX_INPUT_CHARS)}\n\n[Content truncated - showing first 35,000 characters for analysis]`;
 }
 
 export function getPromptByPageType(input: AISummaryPreparedInput) {

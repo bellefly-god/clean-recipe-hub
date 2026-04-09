@@ -53,48 +53,132 @@ function normalizePageType(value: unknown, fallback: DetectedPageType) {
     : fallback;
 }
 
+// Length limits for content truncation
+const MAX_SUMMARY_LENGTH = 450;
+const MAX_KEYPOINT_LENGTH = 150;
+const MAX_NOTE_LENGTH = 100;
+const MAX_FIELD_LENGTH = 200;
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return value.slice(0, maxLength - 3) + "...";
+}
+
+function parsePageSpecificFields(parsed: Record<string, unknown>, pageType: DetectedPageType): Partial<AISummaryResult> {
+  const result: Partial<AISummaryResult> = {};
+
+  if (pageType === "recipe") {
+    if (parsed.ingredients) result.ingredients = normalizeArray(parsed.ingredients);
+    if (parsed.prepTime) result.prepTime = cleanText(String(parsed.prepTime));
+    if (parsed.cookTime) result.cookTime = cleanText(String(parsed.cookTime));
+    if (typeof parsed.servings === "number") result.servings = parsed.servings;
+    if (parsed.difficulty) result.difficulty = cleanText(String(parsed.difficulty));
+    if (parsed.steps) result.steps = normalizeArray(parsed.steps);
+  }
+
+  if (pageType === "news") {
+    if (parsed.who) result.who = truncate(cleanText(String(parsed.who)), MAX_FIELD_LENGTH);
+    if (parsed.what) result.what = truncate(cleanText(String(parsed.what)), MAX_FIELD_LENGTH);
+    if (parsed.when) result.when = truncate(cleanText(String(parsed.when)), MAX_FIELD_LENGTH);
+    if (parsed.where) result.where = truncate(cleanText(String(parsed.where)), MAX_FIELD_LENGTH);
+    if (parsed.why) result.why = truncate(cleanText(String(parsed.why)), MAX_FIELD_LENGTH);
+    if (parsed.attribution) result.attribution = truncate(cleanText(String(parsed.attribution)), MAX_FIELD_LENGTH);
+  }
+
+  if (pageType === "tutorial") {
+    if (parsed.problem) result.problem = truncate(cleanText(String(parsed.problem)), MAX_FIELD_LENGTH);
+    if (parsed.prerequisites) result.prerequisites = normalizeArray(parsed.prerequisites);
+    if (parsed.steps) result.steps = normalizeArray(parsed.steps);
+    if (parsed.difficulty) result.difficulty = cleanText(String(parsed.difficulty));
+    if (parsed.estimatedTime) result.estimatedTime = truncate(cleanText(String(parsed.estimatedTime)), 50);
+  }
+
+  if (pageType === "opinion") {
+    if (parsed.thesis) result.thesis = truncate(cleanText(String(parsed.thesis)), MAX_FIELD_LENGTH);
+    if (parsed.arguments) result.arguments = normalizeArray(parsed.arguments);
+    if (parsed.counterpoints) result.counterpoints = normalizeArray(parsed.counterpoints);
+    if (parsed.conclusion) result.conclusion = truncate(cleanText(String(parsed.conclusion)), MAX_FIELD_LENGTH);
+    if (parsed.bias) result.bias = truncate(cleanText(String(parsed.bias)), 100);
+  }
+
+  if (pageType === "product") {
+    if (parsed.productName) result.productName = truncate(cleanText(String(parsed.productName)), 100);
+    if (parsed.keyFeatures) result.keyFeatures = normalizeArray(parsed.keyFeatures);
+    if (parsed.pros) result.pros = normalizeArray(parsed.pros);
+    if (parsed.cons) result.cons = normalizeArray(parsed.cons);
+    if (parsed.pricing) result.pricing = truncate(cleanText(String(parsed.pricing)), 100);
+    if (parsed.verdict) result.verdict = truncate(cleanText(String(parsed.verdict)), MAX_FIELD_LENGTH);
+  }
+
+  if (pageType === "technical_article") {
+    if (parsed.topic) result.topic = truncate(cleanText(String(parsed.topic)), MAX_FIELD_LENGTH);
+    if (parsed.technologies) result.technologies = normalizeArray(parsed.technologies);
+    if (parsed.concepts) result.concepts = normalizeArray(parsed.concepts);
+    if (parsed.takeaways) result.takeaways = normalizeArray(parsed.takeaways);
+  }
+
+  return result;
+}
+
 function parseSummaryPayload(rawOutput: string, input: AISummaryPreparedInput): AISummaryResult | null {
   try {
     const parsed = JSON.parse(extractJsonString(rawOutput)) as Record<string, unknown>;
     const detectedLanguage = detectOutputLanguage(input.article);
     const pageType = normalizePageType(parsed.pageType, input.pageType);
     const language = normalizeLanguage(parsed.language, detectedLanguage.language);
-    const title = cleanText(typeof parsed.title === "string" ? parsed.title : input.article.title);
-    const shortSummary = cleanText(
+    const title = truncate(cleanText(typeof parsed.title === "string" ? parsed.title : input.article.title), 80);
+    const shortSummaryRaw = cleanText(
       typeof parsed.summary === "string"
         ? parsed.summary
         : typeof parsed.shortSummary === "string"
           ? parsed.shortSummary
           : "",
     );
-    const keyPoints = normalizeArray(parsed.keyPoints);
-    const categories = normalizeArray(parsed.categories);
+    const keyPointsRaw = normalizeArray(parsed.keyPoints);
+    const categories = normalizeArray(parsed.categories).slice(0, 4);
     const actionItems = normalizeArray(parsed.actionItems);
     const notes = normalizeArray(parsed.notes);
     const warnings = normalizeArray(parsed.warnings);
     const codeNotes = normalizeArray(parsed.codeNotes);
     const tags = Array.from(new Set([...(pageType === "generic" ? [] : [pageType]), ...categories])).slice(0, 8);
 
-    if (!shortSummary || keyPoints.length === 0) {
+    // Generate summary from keyPoints if summary is empty
+    const shortSummary = shortSummaryRaw || (keyPointsRaw.length > 0 ? keyPointsRaw.slice(0, 2).join(". ") + "." : "");
+
+    // If both summary and keyPoints are empty, parsing failed
+    if (!shortSummary && keyPointsRaw.length === 0) {
+      console.debug("[AI Summary] Both summary and keyPoints are empty. Raw output preview:", rawOutput.slice(0, 500));
       return null;
     }
 
+    // Truncate content to prevent display issues
+    const truncatedSummary = truncate(shortSummary, MAX_SUMMARY_LENGTH);
+    const truncatedKeyPoints = keyPointsRaw.map((p) => truncate(p, MAX_KEYPOINT_LENGTH));
+    const truncatedNotes = notes.map((n) => truncate(n, MAX_NOTE_LENGTH));
+    const truncatedWarnings = warnings.map((w) => truncate(w, MAX_NOTE_LENGTH));
+
+    // Parse page-specific fields
+    const pageSpecific = parsePageSpecificFields(parsed, pageType);
+
     return {
-      shortSummary,
-      keyPoints,
+      shortSummary: truncatedSummary,
+      keyPoints: truncatedKeyPoints,
       actionItems,
       categories,
-      notes,
+      notes: truncatedNotes,
       tags,
       codeNotes,
       language,
       pageType,
       title,
-      warnings,
+      warnings: truncatedWarnings,
       rawModelOutput: rawOutput,
+      ...pageSpecific,
     };
   } catch (error) {
-    console.debug("[AI Summary] Failed to parse model JSON output.", error);
+    console.debug("[AI Summary] JSON parse failed. Raw output preview:", rawOutput.slice(0, 800));
     return null;
   }
 }

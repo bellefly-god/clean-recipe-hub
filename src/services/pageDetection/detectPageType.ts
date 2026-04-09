@@ -155,18 +155,19 @@ export function detectPageType(input: PageDetectionInput): PageDetectionResult {
     };
   }
 
-  const article = detectArticlePage(document, text);
-  if (article.matched) {
+  // Fallback: if there's substantial text content, treat as generic article
+  // This ensures clean page works for any page with readable content
+  if (text.length > 200) {
     return {
       pageType: "article",
-      confidence: 0.74,
-      reasons: article.reasons,
+      confidence: 0.5,
+      reasons: ["has-substantial-text-content"],
     };
   }
 
   return {
     pageType: "unsupported",
     confidence: 0.4,
-    reasons: text.length < 200 ? ["too-little-readable-content"] : ["no-clear-main-content"],
+    reasons: ["too-little-readable-content"],
   };
 }

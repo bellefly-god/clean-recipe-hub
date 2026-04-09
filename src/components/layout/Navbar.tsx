@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { Settings, LogIn } from "lucide-react";
+import { Settings, LogIn, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
@@ -24,6 +24,17 @@ export function Navbar() {
               className={isActive("/") ? "text-foreground" : "text-muted-foreground"}
             >
               Home
+            </Button>
+          </Link>
+
+          <Link to="/subscription">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`gap-1 ${isActive("/subscription") ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              <Crown className="h-3.5 w-3.5" />
+              Upgrade
             </Button>
           </Link>
 

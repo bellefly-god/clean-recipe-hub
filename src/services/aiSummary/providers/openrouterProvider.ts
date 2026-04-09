@@ -47,7 +47,7 @@ export async function requestOpenRouterCompletion(options: OpenRouterCompletionO
     body: JSON.stringify({
       model: options.model || getOpenRouterModel(),
       messages: options.messages,
-      temperature: options.temperature ?? 0.2,
+      temperature: options.temperature ?? 0.05,
       ...(options.responseFormat === "text"
         ? {}
         : {
