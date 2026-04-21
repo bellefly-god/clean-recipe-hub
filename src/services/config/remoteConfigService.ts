@@ -29,10 +29,13 @@ interface RemoteConfig {
 }
 
 let cachedConfig: RemoteConfig | null = null;
-let configPromise: Promise<RemoteConfig> | null = null;
+let configPromise: Promise<RemoteConfig | null> | null = null;
 
 // Your Cloudflare Worker URL
 const CONFIG_URL = "https://clean-hub.ariflim813.workers.dev/";
+
+// Debug flag - set to true to see config loading status
+const DEBUG_CONFIG = true;
 
 /**
  * Fetch remote configuration from Cloudflare Worker
@@ -51,6 +54,10 @@ export async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
 
   configPromise = (async () => {
     try {
+      if (DEBUG_CONFIG) {
+        console.log("[Config] Fetching from:", CONFIG_URL);
+      }
+
       const response = await fetch(CONFIG_URL, {
         method: "GET",
         headers: {
@@ -59,15 +66,20 @@ export async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
       });
 
       if (!response.ok) {
-        console.error("Failed to fetch config:", response.status);
+        console.error("[Config] Failed to fetch config:", response.status);
         return null;
       }
 
       const config = await response.json() as RemoteConfig;
+
+      if (DEBUG_CONFIG) {
+        console.log("[Config] Remote config loaded:", config);
+      }
+
       cachedConfig = config;
       return config;
     } catch (error) {
-      console.error("Error fetching config:", error);
+      console.error("[Config] Error fetching config:", error);
       return null;
     }
   })();
@@ -79,8 +91,18 @@ export async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
  * Get PayPal client ID from remote config or fallback to env
  */
 export async function getPayPalClientId(): Promise<string | undefined> {
+  // Try remote config first
   const config = await fetchRemoteConfig();
-  return config?.paypal?.clientId || import.meta.env.VITE_PAYPAL_CLIENT_ID;
+  const remoteClientId = config?.paypal?.clientId;
+
+  // Fallback to environment variable
+  const envClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
+
+  if (DEBUG_CONFIG) {
+    console.log("[Config] PayPal Client ID - Remote:", remoteClientId, "Env:", envClientId);
+  }
+
+  return remoteClientId || envClientId;
 }
 
 /**
@@ -88,7 +110,10 @@ export async function getPayPalClientId(): Promise<string | undefined> {
  */
 export async function getPayPalEnvironment(): Promise<"sandbox" | "live"> {
   const config = await fetchRemoteConfig();
-  return config?.paypal?.environment || (import.meta.env.VITE_PAYPAL_ENVIRONMENT as "sandbox" | "live") || "sandbox";
+  const remoteEnv = config?.paypal?.environment;
+  const envEnv = import.meta.env.VITE_PAYPAL_ENVIRONMENT;
+
+  return (remoteEnv || envEnv || "sandbox") as "sandbox" | "live";
 }
 
 /**
@@ -96,9 +121,11 @@ export async function getPayPalEnvironment(): Promise<"sandbox" | "live"> {
  */
 export async function getPayPalPlanIds(): Promise<{ monthly: string; yearly: string }> {
   const config = await fetchRemoteConfig();
+
+  // Fallback to hardcoded plan IDs (for sandbox)
   return {
-    monthly: config?.paypal?.plans?.monthly || "",
-    yearly: config?.paypal?.plans?.yearly || "",
+    monthly: config?.paypal?.plans?.monthly || "P-4WM064014K7923346NHRTU5I",
+    yearly: config?.paypal?.plans?.yearly || "P-9RX64416HR519513SNHRTVCQ",
   };
 }
 

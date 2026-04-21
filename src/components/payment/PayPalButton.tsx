@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState } from "react";
-import { PayPalPlanId } from "@/lib/constants";
-import { loadPayPalScript, savePayPalSubscription } from "@/services/payment/paypalService";
-import { getPayPalPlanIds } from "@/services/config/remoteConfigService";
 import { Button } from "@/components/ui/button";
+import { PayPalPlanId } from "@/lib/constants";
+import { generatePaymentToken } from "@/lib/paymentToken";
+
+// PayPal plan IDs
+const PAYPAL_PLANS = {
+  monthly: "P-4WM064014K7923346NHRTU5I",
+  yearly: "P-9RX64416HR519513SNHRTVCQ"
+};
+
+// Payment page URL - your Alibaba Cloud server
+const PAYMENT_URL = "https://api.pagecleans.com/subscribe";
 
 interface PayPalButtonProps {
   planId: PayPalPlanId;
@@ -13,126 +20,21 @@ interface PayPalButtonProps {
 }
 
 export function PayPalButton({ planId, userId, userEmail, onSuccess, disabled }: PayPalButtonProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sdkReady, setSdkReady] = useState(false);
-  const [planIdRemote, setPlanIdRemote] = useState<string>("");
+  const planPrices = {
+    monthly: "$4.99",
+    yearly: "$39.9"
+  };
 
-  useEffect(() => {
-    let mounted = true;
+  const handleSubscribe = async () => {
+    if (disabled) return;
 
-    async function initPayPal() {
-      try {
-        // Fetch plan ID from remote config
-        const planIds = await getPayPalPlanIds();
-        const remotePlanId = planIds[planId];
+    // Generate HMAC-signed token to prevent tampering
+    const token = await generatePaymentToken(userId, planId, userEmail || "");
 
-        if (mounted) {
-          setPlanIdRemote(remotePlanId);
-        }
-
-        await loadPayPalScript();
-        if (mounted) {
-          setSdkReady(true);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : "Failed to load PayPal");
-        }
-      }
-    }
-
-    void initPayPal();
-
-    return () => {
-      mounted = false;
-    };
-  }, [planId]);
-
-  useEffect(() => {
-    if (!sdkReady || !window.paypal || !containerRef.current || disabled || !planIdRemote) {
-      return;
-    }
-
-    const buttons = window.paypal.Buttons({
-      style: {
-        layout: "vertical",
-        color: "gold",
-        shape: "rect",
-        label: "paypal",
-        height: 45,
-      },
-      createSubscription: (_data, actions) => {
-        return actions.subscription.create({
-          plan_id: planIdRemote,
-        });
-      },
-      onApprove: async (data) => {
-        setLoading(true);
-        try {
-          const result = await savePayPalSubscription(userId, userEmail, data.subscriptionID, planId);
-          if (result.success) {
-            onSuccess?.();
-          } else {
-            setError(result.error ?? "Failed to save subscription");
-          }
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "Unknown error");
-        } finally {
-          setLoading(false);
-        }
-      },
-      onCancel: () => {
-        setError("Payment was cancelled");
-      },
-      onError: (err) => {
-        setError("Payment failed. Please try again.");
-        console.error("PayPal error:", err);
-      },
-    });
-
-    // Clear previous content and render buttons
-    containerRef.current.innerHTML = "";
-    void buttons.render(containerRef.current);
-
-    return () => {
-      buttons.close();
-    };
-  }, [sdkReady, disabled, planId, planIdRemote, userId, userEmail, onSuccess]);
-
-  if (error) {
-    return (
-      <div className="space-y-2">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center text-sm text-red-600">
-          PayPal SDK failed to load. Please refresh the page.
-        </div>
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => window.location.reload()}
-        >
-          Reload Page
-        </Button>
-      </div>
-    );
-  }
-
-  if (!sdkReady || !planIdRemote) {
-    return (
-      <div className="flex items-center justify-center rounded-lg bg-paypal-blue/10 py-3 text-sm text-paypal-blue">
-        <span className="mr-2">Loading PayPal...</span>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center rounded-lg bg-paypal-blue/10 py-3 text-sm text-paypal-blue">
-        Processing payment...
-      </div>
-    );
-  }
+    // Open payment page with signed token
+    const paymentUrl = `${PAYMENT_URL}?token=${encodeURIComponent(token)}`;
+    chrome.tabs.create({ url: paymentUrl });
+  };
 
   if (disabled) {
     return (
@@ -143,11 +45,18 @@ export function PayPalButton({ planId, userId, userEmail, onSuccess, disabled }:
   }
 
   return (
-    <div>
-      <div
-        ref={containerRef}
-        className="[&>div]:flex [&>div]:justify-center"
-      />
+    <div className="space-y-3">
+      <Button
+        onClick={handleSubscribe}
+        className="w-full"
+        size="lg"
+        style={{ backgroundColor: '#0070ba', color: 'white' }}
+      >
+        Subscribe - {planPrices[planId]} / {planId === 'monthly' ? 'month' : 'year'}
+      </Button>
+      <p className="text-center text-xs text-muted-foreground">
+        Opens PayPal in a new tab
+      </p>
     </div>
   );
 }

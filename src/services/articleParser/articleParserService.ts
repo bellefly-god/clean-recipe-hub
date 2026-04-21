@@ -149,6 +149,7 @@ export async function parseArticleFromUrl(
       sourceDomain,
       titleHint: pageContext?.title,
       excerptHint: pageContext?.description,
+      documentLanguage: pageContext?.documentLanguage,
       siteName: pageContext?.siteName,
       publishedAt: pageContext?.publishedAt,
     });

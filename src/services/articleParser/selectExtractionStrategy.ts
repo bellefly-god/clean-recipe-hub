@@ -73,13 +73,13 @@ export function selectExtractionStrategy(pageType: ExtractedContentType): Extrac
     case "feed_page":
       return {
         pageType,
-        extractionStatus: "unsupported",
-        extractionSource: "dom",
-        uiState: "special_page",
-        failureReason: "feed_page_detected",
+        extractionStatus: "partial",
+        extractionSource: "readability",
+        uiState: "warning",
+        failureReason: undefined,
         warnings: ["page_looks_like_home_or_feed"],
         notices: [buildNotice("feed_page", "info")],
-        shouldAttemptExtraction: false,
+        shouldAttemptExtraction: true,  // Still attempt extraction - many article pages have sidebars
         mode: "standard_article",
       };
     case "paywalled_or_partial_page":

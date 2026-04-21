@@ -6,6 +6,7 @@ interface ArticleSource {
   sourceDomain: string;
   titleHint?: string;
   excerptHint?: string;
+  documentLanguage?: string;
   siteName?: string;
   publishedAt?: string;
 }
@@ -21,11 +22,49 @@ function cleanRichText(value?: string | null) {
   return (value ?? "").replace(/\u00a0/g, " ").trim();
 }
 
+function dedupeTitleParts(value: string) {
+  const segments = value
+    .split(/\s+---\s+|\s+[|｜]\s+/)
+    .map((segment) => cleanText(segment))
+    .filter(Boolean);
+
+  if (segments.length <= 1) {
+    return value;
+  }
+
+  const [firstSegment] = segments;
+  return firstSegment || value;
+}
+
+function stripRedditSuffix(value: string) {
+  return value
+    .replace(/\s*[:：]\s*r\/[a-z0-9_]+$/i, "")
+    .replace(/\s*[-–—]\s*reddit$/i, "")
+    .trim();
+}
+
+export function normalizeArticleTitle(value: string, sourceDomain: string) {
+  let normalized = cleanText(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (sourceDomain.includes("reddit.com")) {
+    normalized = dedupeTitleParts(normalized);
+    normalized = stripRedditSuffix(normalized);
+  }
+
+  return normalized;
+}
+
 export function normalizeArticle(
   extraction: ReadableContentExtraction,
   source: ArticleSource,
 ): ArticleContent | null {
-  const title = cleanText(extraction.title) || cleanText(source.titleHint);
+  const title =
+    normalizeArticleTitle(cleanText(extraction.title), source.sourceDomain) ||
+    normalizeArticleTitle(cleanText(source.titleHint), source.sourceDomain);
   const excerpt = cleanText(extraction.excerpt) || cleanText(source.excerptHint);
   const cleanTextValue = cleanRichText(extraction.cleanText || extraction.contentText);
   const cleanHtml = cleanRichText(extraction.cleanHtml || extraction.contentHtml) || null;
@@ -54,6 +93,7 @@ export function normalizeArticle(
     codeBlocks: extraction.codeBlocks ?? [],
     metadata: {
       ...extraction.metadata,
+      language: extraction.metadata?.language || source.documentLanguage,
       siteName: extraction.metadata?.siteName || source.siteName,
       publishedAt: extraction.metadata?.publishedAt || source.publishedAt,
     },

@@ -8,7 +8,7 @@ declare global {
       Buttons: (
         options: PayPalButtonsOptions
       ) => {
-        render: (container: string) => Promise<void>;
+        render: (container: string | HTMLElement) => Promise<void>;
         close: () => void;
       };
     };
@@ -61,26 +61,33 @@ export interface PayPalSubscriptionResult {
   error?: string;
 }
 
+// Store the SDK URL for injection
+let paypalSdkUrl: string | null = null;
+
 /**
- * Load PayPal SDK script
+ * Load PayPal SDK script using chrome.scripting API
  */
 export async function loadPayPalScript(): Promise<void> {
-  // Fetch config from remote
+  // Check if already loaded
+  if (window.paypal) {
+    return;
+  }
+
+  // Get config
   const clientId = await getPayPalClientId();
   const environment = await getPayPalEnvironment();
 
+  if (!clientId) {
+    throw new Error("PayPal Client ID not configured");
+  }
+
+  const baseUrl = environment === "sandbox"
+    ? "https://www.sandbox.paypal.com"
+    : "https://www.paypal.com";
+
+  paypalSdkUrl = `${baseUrl}/sdk/js?client-id=${clientId}&intent=subscription&vault=true&currency=USD`;
+
   return new Promise((resolve, reject) => {
-    if (!clientId) {
-      reject(new Error("PayPal Client ID not configured"));
-      return;
-    }
-
-    // Already loaded
-    if (window.paypal) {
-      resolve();
-      return;
-    }
-
     // Check if script is already being loaded
     const existingScript = document.getElementById("paypal-sdk-script");
     if (existingScript) {
@@ -91,10 +98,7 @@ export async function loadPayPalScript(): Promise<void> {
 
     const script = document.createElement("script");
     script.id = "paypal-sdk-script";
-    const baseUrl = environment === "sandbox"
-      ? "https://www.sandbox.paypal.com"
-      : "https://www.paypal.com";
-    script.src = `${baseUrl}/sdk/js?client-id=${clientId}&intent=subscription&vault=true&currency=USD`;
+    script.src = paypalSdkUrl;
     script.async = true;
 
     script.onload = () => resolve();
@@ -140,18 +144,31 @@ export async function getSubscriptionStatus(userId: string): Promise<Subscriptio
 
 /**
  * Check if user has active subscription
+ * Note: Canceled subscriptions remain valid until current_period_end
  */
 export async function hasActiveSubscription(userId: string): Promise<boolean> {
   const subscription = await getSubscriptionStatus(userId);
   if (!subscription) return false;
 
-  if (subscription.status !== "active") return false;
-
-  if (subscription.currentPeriodEnd) {
-    return new Date(subscription.currentPeriodEnd) > new Date();
+  // Active subscription is always valid
+  if (subscription.status === "active") {
+    if (subscription.currentPeriodEnd) {
+      return new Date(subscription.currentPeriodEnd) > new Date();
+    }
+    return true;
   }
 
-  return true;
+  // Canceled subscription is valid until current_period_end
+  if (subscription.status === "canceled") {
+    if (subscription.currentPeriodEnd) {
+      return new Date(subscription.currentPeriodEnd) > new Date();
+    }
+    // If no current_period_end, give 30 days grace period
+    return false;
+  }
+
+  // Other statuses (expired, inactive) are not valid
+  return false;
 }
 
 /**
@@ -224,6 +241,7 @@ export async function savePayPalSubscription(
 
 /**
  * Cancel PayPal subscription
+ * This will call PayPal API to cancel the subscription and update the database
  */
 export async function cancelSubscription(userId: string): Promise<PayPalSubscriptionResult> {
   if (!supabase) {
@@ -231,16 +249,26 @@ export async function cancelSubscription(userId: string): Promise<PayPalSubscrip
   }
 
   try {
-    const { error } = await supabase
-      .from("subscriptions")
-      .update({
-        status: "canceled",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", userId);
+    // Get current subscription to get the PayPal subscription ID
+    const subscription = await getSubscriptionStatus(userId);
+    const paypalSubscriptionId = subscription?.paypalSubscriptionId;
 
-    if (error) {
-      return { success: false, error: error.message };
+    // Call backend API to cancel subscription (which will call PayPal API)
+    const response = await fetch('https://api.pagecleans.com/api/cancel-subscription', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        paypalSubscriptionId,
+      }),
+    });
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      return { success: false, error: result.error };
     }
 
     return { success: true };

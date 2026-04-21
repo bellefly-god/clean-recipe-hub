@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_AI_SUMMARY_PROVIDER?: "glm5" | "openrouter";
+  readonly VITE_SERVER_API_BASE?: string;
   readonly VITE_GLM5_API_KEY?: string;
   readonly VITE_GLM5_MODEL?: string;
   readonly VITE_OPENROUTER_API_KEY?: string;

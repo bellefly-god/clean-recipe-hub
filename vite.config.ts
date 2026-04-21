@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => ({
         options: path.resolve(__dirname, "src/options/index.html"),
         "service-worker": path.resolve(__dirname, "src/background/service-worker.ts"),
         content: path.resolve(__dirname, "src/content/content.ts"),
+        payment: path.resolve(__dirname, "src/payment/index.html"),
       },
       output: {
         entryFileNames: "[name].js",

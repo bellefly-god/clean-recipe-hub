@@ -65,17 +65,6 @@ export function SettingsPage() {
           </p>
         </section>
 
-        <section className="rounded-xl border bg-card p-5 shadow-soft">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Supabase
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {isConfigured
-              ? "Supabase env vars are configured for extension pages."
-              : "Supabase env vars are missing. Auth stays disabled until VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set."}
-          </p>
-        </section>
-
         {user && (
           <Button variant="outline" className="w-full rounded-xl" onClick={() => void signOut()}>
             <LogOut className="mr-2 h-4 w-4" />

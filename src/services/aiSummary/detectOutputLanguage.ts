@@ -5,12 +5,44 @@ export interface OutputLanguageDetection {
   reason: string;
 }
 
+function languageFromHtmlLang(value?: string | null) {
+  const normalized = (value ?? "").trim().toLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith("zh")) {
+    return { language: "Chinese", reason: "html-lang" };
+  }
+
+  if (normalized.startsWith("en")) {
+    return { language: "English", reason: "html-lang" };
+  }
+
+  if (normalized.startsWith("ja")) {
+    return { language: "Japanese", reason: "html-lang" };
+  }
+
+  if (normalized.startsWith("ko")) {
+    return { language: "Korean", reason: "html-lang" };
+  }
+
+  return null;
+}
+
 function countMatches(value: string, pattern: RegExp) {
   const matches = value.match(pattern);
   return matches?.length ?? 0;
 }
 
 export function detectOutputLanguage(article: ArticleContent): OutputLanguageDetection {
+  const languageFromMetadata = languageFromHtmlLang(article.metadata?.language);
+
+  if (languageFromMetadata) {
+    return languageFromMetadata;
+  }
+
   const sample = [article.title, article.excerpt, article.cleanText.slice(0, 3000)]
     .filter(Boolean)
     .join("\n");

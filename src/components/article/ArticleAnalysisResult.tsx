@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Check, Copy, Download, RefreshCcw, ScanSearch, Clock, Users, ChefHat, AlertTriangle, Zap, Target, MessageSquareQuote, Lightbulb, TrendingUp, TrendingDown } from "lucide-react";
+import DOMPurify from "dompurify";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -30,23 +31,44 @@ function sanitizeArticleHtml(html?: string | null) {
     return "";
   }
 
+  // Use DOMPurify for secure HTML sanitization
+  const config = {
+    ALLOWED_TAGS: [
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'p', 'br', 'hr',
+      'ul', 'ol', 'li',
+      'blockquote', 'pre', 'code',
+      'strong', 'em', 'b', 'i', 'u', 's',
+      'a', 'img',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'div', 'span',
+      'figure', 'figcaption',
+    ],
+    ALLOWED_ATTR: [
+      'href', 'src', 'alt', 'title', 'class',
+      'rel', 'target', 'width', 'height',
+    ],
+    FORBID_TAGS: ['script', 'style', 'iframe', 'form', 'noscript', 'object', 'embed'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+  };
+
+  // First do basic cleanup
   const document = new DOMParser().parseFromString(html, "text/html");
-  document.querySelectorAll("script, style, iframe, form, noscript").forEach((node) => node.remove());
+  document.querySelectorAll("script, style, iframe, form, noscript, object, embed").forEach((node) => node.remove());
 
-  document.querySelectorAll("*").forEach((element) => {
-    Array.from(element.attributes).forEach((attribute) => {
-      if (attribute.name.startsWith("on")) {
-        element.removeAttribute(attribute.name);
-      }
-    });
+  // Then use DOMPurify for thorough sanitization
+  const cleanedHtml = document.body.innerHTML;
+  const sanitized = DOMPurify.sanitize(cleanedHtml, config);
 
-    if (element instanceof HTMLAnchorElement) {
-      element.rel = "noreferrer noopener";
-      element.target = "_blank";
-    }
+  // Add security attributes to links
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = sanitized;
+  tempDiv.querySelectorAll("a").forEach((link) => {
+    link.setAttribute("rel", "noreferrer noopener");
+    link.setAttribute("target", "_blank");
   });
 
-  return document.body.innerHTML.trim();
+  return tempDiv.innerHTML.trim();
 }
 
 function extractOutline(article: ArticleContent, sanitizedHtml: string): OutlineEntry[] {
@@ -287,11 +309,6 @@ export function ArticleAnalysisResult({
         </section>
       ) : summary ? (
         <section className="space-y-4">
-          <div className="rounded-2xl border bg-secondary/40 p-5 shadow-soft">
-            <h2 className="font-display text-xl text-foreground">Summary</h2>
-            <p className="mt-3 leading-7 text-foreground">{summary.shortSummary}</p>
-          </div>
-
           <Accordion type="multiple" defaultValue={summary ? ["summary", "page-specific", "key-points"] : ["summary"]} className="rounded-2xl border bg-card/90 px-5 shadow-soft">
               {/* Summary always visible */}
               <AccordionItem value="summary">
@@ -310,7 +327,8 @@ export function ArticleAnalysisResult({
                      summary.pageType === "tutorial" ? "Tutorial Steps" :
                      summary.pageType === "opinion" ? "Opinion Analysis" :
                      summary.pageType === "product" ? "Product Overview" :
-                     summary.pageType === "technical_article" ? "Technical Details" : "Details"}
+                     summary.pageType === "technical_article" ? "Technical Details" :
+                     summary.pageType === "academic_paper" ? "Research Paper" : "Details"}
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4 pb-2">
@@ -320,6 +338,7 @@ export function ArticleAnalysisResult({
                       {summary.pageType === "opinion" && <OpinionSection summary={summary} />}
                       {summary.pageType === "product" && <ProductSection summary={summary} />}
                       {summary.pageType === "technical_article" && <TechnicalSection summary={summary} />}
+                      {summary.pageType === "academic_paper" && <AcademicSection summary={summary} />}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -577,7 +596,7 @@ function RecipeSection({ summary }: { summary: AISummaryResult }) {
 }
 
 function NewsSection({ summary }: { summary: AISummaryResult }) {
-  if (!summary.who && !summary.what && !summary.when && !summary.where && !summary.why) return null;
+  if (!summary.who && !summary.what && !summary.when && !summary.where && !summary.why && !summary.facts?.length) return null;
 
   return (
     <AccordionItem value="news-details">
@@ -623,6 +642,20 @@ function NewsSection({ summary }: { summary: AISummaryResult }) {
             <div className="flex gap-2">
               <span className="font-medium text-foreground min-w-[60px]">Source:</span>
               <span className="text-muted-foreground">{summary.attribution}</span>
+            </div>
+          )}
+
+          {summary.facts && summary.facts.length > 0 && (
+            <div className="pt-2">
+              <h4 className="mb-2 font-medium text-foreground">Reported Facts</h4>
+              <ul className="space-y-2">
+                {summary.facts.map((item, index) => (
+                  <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
@@ -699,7 +732,7 @@ function TutorialSection({ summary }: { summary: AISummaryResult }) {
 }
 
 function OpinionSection({ summary }: { summary: AISummaryResult }) {
-  if (!summary.thesis && !summary.arguments && !summary.counterpoints) return null;
+  if (!summary.thesis && !summary.arguments && !summary.counterpoints && !summary.opinions?.length) return null;
 
   return (
     <AccordionItem value="opinion-details">
@@ -754,6 +787,19 @@ function OpinionSection({ summary }: { summary: AISummaryResult }) {
             <div className="mt-3 pt-3 border-t">
               <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Conclusion</h4>
               <p className="text-sm text-foreground">{summary.conclusion}</p>
+            </div>
+          )}
+
+          {summary.opinions && summary.opinions.length > 0 && (
+            <div>
+              <h4 className="mb-2 font-medium text-foreground">Opinion Signals</h4>
+              <ul className="space-y-2">
+                {summary.opinions.map((item, index) => (
+                  <li key={index} className="text-sm text-muted-foreground pl-4 border-l-2 border-accent">
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
@@ -899,6 +945,91 @@ function TechnicalSection({ summary }: { summary: AISummaryResult }) {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+}
+
+function AcademicSection({ summary }: { summary: AISummaryResult }) {
+  if (!summary.researchQuestion && !summary.methodology && !summary.keyFindings?.length && !summary.contributions?.length) return null;
+
+  return (
+    <AccordionItem value="academic-details">
+      <AccordionTrigger className="text-left font-display text-lg text-foreground">
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4" />
+          Research Paper
+        </div>
+      </AccordionTrigger>
+      <AccordionContent>
+        <div className="space-y-4 pb-2">
+          {summary.researchQuestion && (
+            <div className="rounded-lg bg-secondary/40 p-3">
+              <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Research Question</h4>
+              <p className="text-sm text-foreground">{summary.researchQuestion}</p>
+            </div>
+          )}
+
+          {summary.methodology && (
+            <div>
+              <h4 className="mb-2 font-medium text-foreground">Methodology</h4>
+              <p className="text-sm text-muted-foreground">{summary.methodology}</p>
+            </div>
+          )}
+
+          {summary.keyFindings && summary.keyFindings.length > 0 && (
+            <div>
+              <h4 className="mb-2 flex items-center gap-1 font-medium text-foreground">
+                <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+                Key Findings
+              </h4>
+              <ul className="space-y-2">
+                {summary.keyFindings.map((item, index) => (
+                  <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-green-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {summary.contributions && summary.contributions.length > 0 && (
+            <div>
+              <h4 className="mb-2 font-medium text-foreground">Contributions</h4>
+              <ul className="space-y-2">
+                {summary.contributions.map((item, index) => (
+                  <li key={index} className="text-sm text-muted-foreground pl-4 border-l-2 border-blue-200">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {summary.limitations && summary.limitations.length > 0 && (
+            <div>
+              <h4 className="mb-2 flex items-center gap-1 font-medium text-foreground">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                Limitations
+              </h4>
+              <ul className="space-y-2">
+                {summary.limitations.map((item, index) => (
+                  <li key={index} className="text-sm text-muted-foreground pl-4 border-l-2 border-amber-200">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {summary.futureWork && (
+            <div className="mt-3 pt-3 border-t">
+              <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Future Work</h4>
+              <p className="text-sm text-foreground">{summary.futureWork}</p>
             </div>
           )}
         </div>

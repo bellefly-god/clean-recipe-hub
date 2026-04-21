@@ -196,6 +196,10 @@ function buildSnapshotHtml() {
 function collectPageContext() {
   const canonicalUrl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href;
   const shadowStats = getShadowDomStats();
+  const documentLanguage =
+    document.documentElement.getAttribute("lang")?.trim() ||
+    document.body.getAttribute("lang")?.trim() ||
+    "";
 
   return {
     url: window.location.href,
@@ -204,6 +208,7 @@ function collectPageContext() {
       getMetaContent('meta[name="description"]') ||
       getMetaContent('meta[property="og:description"]') ||
       "",
+    documentLanguage,
     canonicalUrl,
     siteName: getMetaContent('meta[property="og:site_name"]') || window.location.hostname,
     publishedAt: getPublishedAt(),
@@ -216,10 +221,16 @@ function collectPageContext() {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== "GET_PAGE_CONTEXT") {
+  if (message?.type === "GET_PAGE_CONTEXT") {
+    sendResponse({ pageContext: collectPageContext() });
     return false;
   }
 
-  sendResponse({ pageContext: collectPageContext() });
+  if (message?.type === "GET_SELECTED_TEXT") {
+    const selectedText = window.getSelection()?.toString().trim() ?? "";
+    sendResponse({ selectedText });
+    return false;
+  }
+
   return false;
 });

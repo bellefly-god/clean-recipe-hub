@@ -8,6 +8,7 @@ export type DetectedPageType =
   | "opinion"
   | "product"
   | "technical_article"
+  | "academic_paper"
   | "generic";
 
 export interface PageTypeDetection {
@@ -25,6 +26,8 @@ export interface AISummaryResult {
   notes?: string[];
   codeNotes?: string[];
   language?: string;
+  facts?: string[];
+  opinions?: string[];
   pageType?: DetectedPageType;
   title?: string;
   warnings?: string[];
@@ -64,6 +67,13 @@ export interface AISummaryResult {
   technologies?: string[];
   concepts?: string[];
   takeaways?: string[];
+  // Academic paper specific
+  researchQuestion?: string;
+  methodology?: string;
+  keyFindings?: string[];
+  contributions?: string[];
+  limitations?: string[];
+  futureWork?: string;
 }
 
 export interface AISummaryServiceResult {
@@ -83,4 +93,10 @@ export interface AISummaryInput {
 
 export interface AISummaryPreparedInput extends AISummaryInput {
   pageType: DetectedPageType;
+}
+
+/** Optional content override — used for "Analyze Selection" where we want to
+ *  analyze only the selected text, not the full article content. */
+export interface AISummaryContentOverride {
+  content: string;
 }

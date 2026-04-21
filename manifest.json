@@ -1,20 +1,36 @@
 {
   "manifest_version": 3,
-  "name": "Recipe Cleaner",
-  "description": "Open the current recipe page in a clean Chrome side panel.",
-  "version": "0.1.0",
+  "name": "Page Cleaner",
+  "description": "Open the current page in a clean Chrome side panel with AI analysis.",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "action": {
-    "default_title": "Open Recipe Cleaner"
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png"
+    },
+    "default_title": "Open Page Cleaner"
   },
   "permissions": [
     "storage",
     "tabs",
     "sidePanel",
-    "scripting"
+    "scripting",
+    "activeTab"
   ],
   "host_permissions": [
     "http://*/*",
     "https://*/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/payment/index.html"],
+      "matches": ["<all_urls>"]
+    }
   ],
   "background": {
     "service_worker": "service-worker.js",

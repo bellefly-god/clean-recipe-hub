@@ -65,6 +65,7 @@ export interface ArticleMetadata {
   byline?: string;
   siteName?: string;
   publishedAt?: string;
+  language?: string;
   length?: number;
   excerptLength?: number;
 }

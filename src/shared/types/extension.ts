@@ -8,6 +8,7 @@ export interface PageContext {
   url: string;
   title: string;
   description?: string;
+  documentLanguage?: string;
   canonicalUrl?: string;
   siteName?: string;
   publishedAt?: string;

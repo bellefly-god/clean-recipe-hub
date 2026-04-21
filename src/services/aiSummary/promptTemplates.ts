@@ -1,187 +1,181 @@
 import type { DetectedPageType } from "@/services/aiSummary/types";
 
-// Page-specific output templates for structured display
-export const PAGE_TYPE_OUTPUT_TEMPLATES: Record<DetectedPageType, string> = {
-  recipe: `For recipes, include these ADDITIONAL fields in your JSON:
-- "ingredients": array of ingredient strings with quantities (e.g., ["2 cups flour", "1 tsp salt"])
-- "prepTime": prep time if stated (e.g., "15 minutes")
-- "cookTime": cook time if stated (e.g., "30 minutes")
-- "servings": number of servings if stated
-- "difficulty": "easy" | "medium" | "hard" if determinable
-- "steps": array of cooking steps, each as a concise instruction`,
+export function getStructuredSummaryInstructions(): string {
+  return `你是一名专业的文章分析助手。请分析输入文章，并以严格 JSON 格式返回结果。
 
-  news: `For news, include these ADDITIONAL fields in your JSON:
-- "who": main subject(s) involved
-- "what": what happened in one sentence
-- "when": when it happened
-- "where": location if stated
-- "why": why it matters, context or implications
-- "attribution": quoted sources or references`,
+要求：
+1. 必须先识别文章主类型。
+2. 必须同时输出"通用分析"和"类型专属分析"。
+3. 不要编造信息；原文未提及则填写 "未提及"。
+4. 区分事实、观点、推测、经验、营销表达。
+5. 输出必须是合法 JSON，不要包含 markdown，不要加解释文字。
+6. 输出语言与文章语言一致，除非用户明确指定其他语言。
 
-  tutorial: `For tutorials, include these ADDITIONAL fields in your JSON:
-- "problem": what problem does this solve
-- "prerequisites": array of required tools/knowledge
-- "steps": array of tutorial steps, numbered and concise
-- "difficulty": "beginner" | "intermediate" | "advanced"
-- "estimatedTime": time to complete if stated`,
+文章主类型枚举：
+news
+finance
+travel
+blog_opinion
+tutorial
+recipe
+research_paper
+product_review
+marketing
+other
 
-  opinion: `For opinion pieces, include these ADDITIONAL fields in your JSON:
-- "thesis": the main argument in one sentence
-- "arguments": array of supporting arguments
-- "counterpoints": array of opposing views addressed
-- "conclusion": the author's final position
-- "bias": noted perspective or potential bias`,
+请返回以下 JSON 结构：
 
-  product: `For product content, include these ADDITIONAL fields in your JSON:
-- "productName": name of the product/service
-- "category": product category
-- "keyFeatures": array of main features
-- "pros": array of advantages
-- "cons": array of disadvantages
-- "pricing": pricing info if available
-- "verdict": recommendation if given`,
+{
+  "article_type": "",
+  "one_sentence_summary": "",
+  "key_points": [
+    "",
+    "",
+    ""
+  ],
+  "content_nature": {
+    "category": "",
+    "reason": ""
+  },
+  "target_audience": "",
+  "read_recommendation": {
+    "level": "",
+    "reason": ""
+  },
+  "common_entities": {
+    "people": [],
+    "organizations": [],
+    "locations": [],
+    "dates": [],
+    "products": [],
+    "numbers": []
+  },
+  "fact_vs_opinion": {
+    "facts": [],
+    "opinions": [],
+    "speculations": []
+  },
+  "type_specific_analysis": {},
+  "risk_or_limitations": [],
+  "actionable_takeaways": [],
+  "confidence": {
+    "score": 0,
+    "reason": ""
+  }
+}
 
-  technical_article: `For technical articles, include these ADDITIONAL fields in your JSON:
-- "topic": main technical topic
-- "technologies": array of technologies/frameworks mentioned
-- "concepts": array of key concepts explained
-- "codeSnippets": brief descriptions of any important code
-- "takeaways": practical lessons for developers`,
+type_specific_analysis 根据类型返回不同字段：
 
-  generic: `For generic content, focus on extracting the most relevant information and organizing it clearly.`,
-};
+如果 article_type = "news"
+{
+  "event_overview": "",
+  "key_people_or_orgs": [],
+  "time_and_place": "",
+  "impact": "",
+  "uncertainties": [],
+  "what_to_watch_next": []
+}
 
-export const PAGE_TYPE_PROMPT_TEMPLATES: Record<DetectedPageType, string> = {
-  recipe:
-    "Focus on: dish name, ingredients with quantities, cooking method, prep/cook time, servings, difficulty. Each keyPoint: ONE specific detail, MAX 120 chars. Preserve ingredient quantities. Include warnings for missing times or temperatures.",
-  news:
-    "Focus on: WHO did WHAT, WHEN, WHERE, WHY it matters. Separate facts from opinions. Each keyPoint: MAX 120 chars, include attribution. Add warnings for unverified claims or one-sided coverage.",
-  tutorial:
-    "Focus on: problem solved, core method, step sequence, prerequisites, commands/APIs. Each keyPoint: ONE actionable item, MAX 120 chars. Add warnings for missing prerequisites or risky steps.",
-  opinion:
-    "Focus on: author's thesis, main arguments, assumptions, counterpoints. Distinguish claims from evidence. Each keyPoint: MAX 120 chars. Add warnings for weak evidence or loaded framing.",
-  product:
-    "Focus on: what it is, key features, ideal user, limitations, pricing if stated. Each keyPoint: MAX 120 chars. Add warnings for marketing language, missing pricing, or unverified claims.",
-  technical_article:
-    "Focus on: what it teaches/announces, core architecture/workflow, key APIs/commands, version info, pitfalls. Use codeNotes for code observations. Each keyPoint: MAX 120 chars. Add warnings for version assumptions or missing context.",
-  generic:
-    "Focus on: main topic, core ideas, important details. Each keyPoint: MAX 120 chars. Add warnings for incomplete, ambiguous, or promotional content.",
-};
+如果 article_type = "finance"
+{
+  "core_thesis": "",
+  "supporting_data_or_logic": [],
+  "bullish_factors": [],
+  "risk_factors": [],
+  "facts": [],
+  "speculations": [],
+  "affected_sectors_or_groups": []
+}
 
-export function getStructuredSummaryInstructions() {
+如果 article_type = "travel"
+{
+  "destination": "",
+  "recommended_duration": "",
+  "best_time_to_go": "",
+  "highlights": [],
+  "budget_info": "",
+  "transport_tips": [],
+  "stay_tips": [],
+  "pitfalls": [],
+  "is_it_directly_actionable": ""
+}
+
+如果 article_type = "blog_opinion"
+{
+  "main_argument": "",
+  "supporting_reasons": [],
+  "useful_lessons": [],
+  "personal_experience_elements": [],
+  "bias_or_stance": ""
+}
+
+如果 article_type = "tutorial"
+{
+  "problem_to_solve": "",
+  "solution_summary": "",
+  "steps": [],
+  "prerequisites": [],
+  "common_mistakes": [],
+  "beginner_friendly": ""
+}
+
+如果 article_type = "recipe"
+{
+  "dish_name": "",
+  "ingredients": [],
+  "steps": [],
+  "prep_time": "",
+  "cook_time": "",
+  "key_tips": [],
+  "substitutions": [],
+  "failure_points": []
+}
+
+如果 article_type = "research_paper"
+{
+  "research_question": "",
+  "method": "",
+  "data_or_experiment": "",
+  "main_findings": [],
+  "contributions": [],
+  "limitations": [],
+  "worth_reading_full_text": ""
+}
+
+如果 article_type = "product_review"
+{
+  "product_name": "",
+  "problem_it_solves": "",
+  "core_features": [],
+  "pros": [],
+  "cons": [],
+  "best_for": [],
+  "promotional_tone": ""
+}
+
+如果 article_type = "marketing"
+{
+  "main_value_proposition": "",
+  "target_users": [],
+  "promises": [],
+  "credible_information": [],
+  "marketing_language_signals": [],
+  "what_users_should_really_focus_on": []
+}`;
+}
+
+export function buildSummaryPrompt(input: {
+  title?: string;
+  url?: string;
+  content: string;
+}): string {
   return [
-    "You are a precise content analyzer. Return ONLY valid JSON.",
+    getStructuredSummaryInstructions(),
     "",
-    "BASE REQUIRED FIELDS:",
-    JSON.stringify(
-      {
-        pageType: "recipe|news|tutorial|opinion|product|technical_article|generic",
-        language: "Chinese or English based on source language",
-        title: "clear title, max 80 characters",
-        summary: "2-3 sentences. Each sentence max 150 characters. Capture the CORE message.",
-        keyPoints: ["specific point 1 (max 120 chars)", "specific point 2", "specific point 3"],
-        categories: ["tag1", "tag2"],
-        actionItems: [],
-        notes: [],
-        warnings: [],
-        codeNotes: [],
-      },
-      null,
-      2,
-    ),
-    "",
-    "PAGE-SPECIFIC FIELDS: (Include these based on detected pageType above)",
-    "",
-    "For RECIPE pages, add:",
-    JSON.stringify(
-      {
-        ingredients: ["ingredient with quantity"],
-        prepTime: "prep time if stated",
-        cookTime: "cook time if stated",
-        servings: "number if stated",
-        difficulty: "easy|medium|hard",
-        steps: ["step 1", "step 2"],
-      },
-      null,
-      2,
-    ),
-    "",
-    "For NEWS pages, add:",
-    JSON.stringify(
-      {
-        who: "main subjects",
-        what: "what happened",
-        when: "when it happened",
-        where: "location",
-        why: "why it matters",
-        attribution: "sources quoted",
-      },
-      null,
-      2,
-    ),
-    "",
-    "For TUTORIAL pages, add:",
-    JSON.stringify(
-      {
-        problem: "what problem it solves",
-        prerequisites: ["required tools or knowledge"],
-        steps: ["numbered step"],
-        difficulty: "beginner|intermediate|advanced",
-        estimatedTime: "time if stated",
-      },
-      null,
-      2,
-    ),
-    "",
-    "For OPINION pages, add:",
-    JSON.stringify(
-      {
-        thesis: "main argument",
-        arguments: ["supporting point"],
-        counterpoints: ["opposing views addressed"],
-        conclusion: "final position",
-      },
-      null,
-      2,
-    ),
-    "",
-    "For PRODUCT pages, add:",
-    JSON.stringify(
-      {
-        productName: "product name",
-        keyFeatures: ["feature 1"],
-        pros: ["advantage"],
-        cons: ["disadvantage"],
-        pricing: "price if stated",
-        verdict: "recommendation if given",
-      },
-      null,
-      2,
-    ),
-    "",
-    "For TECHNICAL articles, add:",
-    JSON.stringify(
-      {
-        topic: "main technical topic",
-        technologies: ["tech mentioned"],
-        concepts: ["key concept"],
-        takeaways: ["practical lesson"],
-      },
-      null,
-      2,
-    ),
-    "",
-    "CRITICAL RULES:",
-    "- Return ONLY the JSON object. NO markdown, NO code blocks, NO explanations.",
-    "- Fill in page-specific fields ONLY if content contains that information.",
-    "- summary: 2-3 sentences MAX. Each sentence MAX 150 characters. Capture the ESSENCE.",
-    "- keyPoints: 3-6 points. Each point MAX 120 characters. Be SPECIFIC, not vague.",
-    "- categories: 2-4 lowercase topic tags.",
-    "- notes: Important details, edge cases, caveats. MAX 100 chars each.",
-    "- warnings: ONLY if content has gaps, risks, issues. Otherwise empty array [].",
-    "- COMPLETENESS: Include ALL important information from source.",
-    "- CONCISENESS: Every field must be brief. No fluff, no padding.",
-    "- ACCURACY: Never invent facts. If unsure, add to warnings.",
+    "输入：",
+    `标题：${input.title || "未提供"}`,
+    `链接：${input.url || "未提供"}`,
+    `正文：${input.content}`,
   ].join("\n");
 }
 

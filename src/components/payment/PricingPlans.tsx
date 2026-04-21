@@ -1,50 +1,65 @@
 import { PayPalButton } from "@/components/payment/PayPalButton";
-import { PAYPAL_PLANS, PayPalPlanId } from "@/lib/constants";
 
-interface PricingPlan {
-  id: PayPalPlanId;
-  name: string;
-  price: number;
-  interval: string;
-  features: string[];
-}
-
-const plans: PricingPlan[] = [
-  {
-    id: "monthly",
-    name: PAYPAL_PLANS.monthly.name,
-    price: PAYPAL_PLANS.monthly.price,
-    interval: PAYPAL_PLANS.monthly.interval,
-    features: PAYPAL_PLANS.monthly.features,
+// PayPal plan IDs
+const PAYPAL_PLANS = {
+  monthly: {
+    id: "monthly" as const,
+    name: "Pro Monthly",
+    price: 4.99,
+    interval: "month",
+    features: [
+      "Unlimited page cleanings",
+      "Unlimited AI summaries",
+      "All page types supported",
+    ],
   },
-  {
-    id: "yearly",
-    name: PAYPAL_PLANS.yearly.name,
-    price: PAYPAL_PLANS.yearly.price,
-    interval: PAYPAL_PLANS.yearly.interval,
-    features: PAYPAL_PLANS.yearly.features,
+  yearly: {
+    id: "yearly" as const,
+    name: "Pro Yearly",
+    price: 39.9,
+    interval: "year",
+    features: [
+      "Unlimited page cleanings",
+      "Unlimited AI summaries",
+      "All page types supported",
+      "Save 37% vs monthly",
+    ],
   },
-];
+};
 
 interface PricingPlansProps {
   userId: string;
   userEmail: string;
   currentPlan?: string | null;
+  subscriptionStatus?: "active" | "canceled" | "expired" | "inactive" | null;
   onSubscriptionSuccess?: () => void;
 }
 
-export function PricingPlans({ userId, userEmail, currentPlan, onSubscriptionSuccess }: PricingPlansProps) {
+export function PricingPlans({ 
+  userId, 
+  userEmail, 
+  currentPlan, 
+  subscriptionStatus,
+  onSubscriptionSuccess 
+}: PricingPlansProps) {
+  // Only disable button if subscription is ACTIVE and matches the plan
+  // If subscription is canceled/expired, user should be able to resubscribe
+  const isCurrentActivePlan = (planId: string) => {
+    if (subscriptionStatus !== "active") return false;
+    return currentPlan === `pro_${planId}`;
+  };
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      {plans.map((plan) => (
+      {Object.values(PAYPAL_PLANS).map((plan) => (
         <div
           key={plan.id}
-          className={`relative rounded-xl border bg-card p-5 shadow-soft ${
+          className={`relative rounded-xl border bg-card p-5 shadow-soft transition-transform hover:scale-[1.02] ${
             plan.id === "yearly" ? "ring-1 ring-amber-500/20" : ""
           }`}
         >
           {plan.id === "yearly" && (
-            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-medium text-white">
+            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-1 text-xs font-medium text-white shadow-sm">
               Best Value
             </div>
           )}
@@ -52,7 +67,7 @@ export function PricingPlans({ userId, userEmail, currentPlan, onSubscriptionSuc
           <div className="mb-4">
             <h3 className="font-display text-lg text-foreground">{plan.name}</h3>
             <div className="mt-2">
-              <span className="text-2xl font-bold text-foreground">$ {plan.price}</span>
+              <span className="text-2xl font-bold text-foreground">${plan.price}</span>
               <span className="text-muted-foreground"> / {plan.interval}</span>
             </div>
           </div>
@@ -71,7 +86,7 @@ export function PricingPlans({ userId, userEmail, currentPlan, onSubscriptionSuc
             userId={userId}
             userEmail={userEmail}
             onSuccess={onSubscriptionSuccess}
-            disabled={currentPlan === "pro_monthly" || currentPlan === "pro_yearly"}
+            disabled={isCurrentActivePlan(plan.id)}
           />
         </div>
       ))}

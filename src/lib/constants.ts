@@ -1,25 +1,25 @@
 export const MAX_GUEST_USES = 3;
 export const GUEST_USAGE_LIMIT_DISABLED = false;
-export const GUEST_USAGE_KEY = "recipe_cleaner_guest_uses";
-export const APP_NAME = "Recipe Cleaner";
+export const GUEST_USAGE_KEY = "page_cleaner_guest_uses";
+export const APP_NAME = "Page Cleaner";
 
 // PayPal Subscription Plans
 export const PAYPAL_PLANS = {
   monthly: {
-    id: "P-14Y667762H851883NNHLVNYY",
+    id: "P-4WM064014K7923346NHRTU5I",
     name: "Pro Monthly",
-    price: 3.99,
+    price: 4.99,
     currency: "USD",
     interval: "month",
     features: ["Unlimited page cleanings", "Unlimited AI summaries", "All page types supported"],
   },
   yearly: {
-    id: "P-5RA73862FS6145123NHLVNZQ",
+    id: "P-9RX64416HR519513SNHRTVCQ",
     name: "Pro Yearly",
-    price: 29.9,
+    price: 39.9,
     currency: "USD",
     interval: "year",
-    features: ["Unlimited page cleanings", "Unlimited AI summaries", "All page types supported", "Save 37% vs monthly"],
+    features: ["Unlimited page cleanings", "Unlimited AI summaries", "All page types supported", "Save 33% vs monthly"],
   },
 } as const;
 
