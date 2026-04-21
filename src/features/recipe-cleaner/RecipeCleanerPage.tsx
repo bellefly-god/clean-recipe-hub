@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { getPrimaryArticleParseMessage } from "@/features/recipe-cleaner/articleParseMessages";
 import { getRemainingGuestUses, hasGuestUsesRemaining, incrementGuestUsage } from "@/services/guestUsage/guestUsageService";
+import { hasActiveSubscription } from "@/services/payment/paypalService";
 import { parseArticleFromUrl } from "@/services/articleParser/articleParserService";
 import { summarizeArticle } from "@/services/aiSummary/aiSummaryService";
 import type { AISummaryResult } from "@/services/aiSummary/types";
@@ -204,9 +205,22 @@ export function RecipeCleanerPage() {
   };
 
   const handleCleanArticle = async (url: string) => {
-    if (!user && !(await hasGuestUsesRemaining())) {
-      setState("limit");
-      return;
+    // Check if user has access (logged in with subscription, or guest with remaining uses)
+    if (user) {
+      // Logged in user - check subscription
+      const hasSubscription = await hasActiveSubscription(user.id);
+      if (!hasSubscription) {
+        // User is logged in but has no active subscription
+        // Redirect to subscription page instead of showing limit
+        setState("limit");
+        return;
+      }
+    } else {
+      // Guest user - check remaining uses
+      if (!(await hasGuestUsesRemaining())) {
+        setState("limit");
+        return;
+      }
     }
 
     setState("loading");
@@ -236,9 +250,18 @@ export function RecipeCleanerPage() {
   };
 
   const handleAnalyzeArticle = async (url: string) => {
-    if (!user && !(await hasGuestUsesRemaining())) {
-      setState("limit");
-      return;
+    // Check if user has access (logged in with subscription, or guest with remaining uses)
+    if (user) {
+      const hasSubscription = await hasActiveSubscription(user.id);
+      if (!hasSubscription) {
+        setState("limit");
+        return;
+      }
+    } else {
+      if (!(await hasGuestUsesRemaining())) {
+        setState("limit");
+        return;
+      }
     }
 
     setState("loading");
@@ -278,16 +301,35 @@ export function RecipeCleanerPage() {
   };
 
   const handleAnalyzeSelectedText = async () => {
-    const selectedText = window.getSelection()?.toString().replace(/\s+/g, " ").trim() ?? "";
+    // Get selected text from the main page via content script
+    let selectedText = "";
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab.id) {
+        const response = await chrome.tabs.sendMessage(tab.id, { type: "GET_SELECTED_TEXT" });
+        selectedText = response?.selectedText?.replace(/\s+/g, " ").trim() ?? "";
+      }
+    } catch (err) {
+      console.error("Failed to get selected text:", err);
+    }
 
     if (!article || selectedText.length < 40) {
       toast({ description: "Select a meaningful passage in the clean article first." });
       return;
     }
 
-    if (!user && !(await hasGuestUsesRemaining())) {
-      setState("limit");
-      return;
+    // Check if user has access (logged in with subscription, or guest with remaining uses)
+    if (user) {
+      const hasSubscription = await hasActiveSubscription(user.id);
+      if (!hasSubscription) {
+        setState("limit");
+        return;
+      }
+    } else {
+      if (!(await hasGuestUsesRemaining())) {
+        setState("limit");
+        return;
+      }
     }
 
     setState("loading");
@@ -296,21 +338,12 @@ export function RecipeCleanerPage() {
     updateLoadingState("Preparing selected text…", "Summarizing only the text you selected.", 52);
     startAIPendingProgress("Analyzing selection…");
 
-    const summaryResult = await summarizeArticle({
-      article: {
-        ...article,
-        excerpt: selectedText.slice(0, 180),
-        cleanText: selectedText,
-        cleanHtml: null,
-        cleanMarkdown: selectedText,
-        contentText: selectedText,
-        contentHtml: null,
-        contentMarkdown: selectedText,
-        headings: [],
-        codeBlocks: [],
-        images: [],
+    const summaryResult = await summarizeArticle(
+      {
+        article,
       },
-    });
+      selectedText,
+    );
 
     if (!summaryResult.success || !summaryResult.summary) {
       clearLoadingTimer();
@@ -373,12 +406,12 @@ export function RecipeCleanerPage() {
     pendingArticleAction?.kind === "clean"
       ? {
           title: "Clean this page?",
-          description: "Recipe Cleaner will re-extract the current page and refresh the clean reading view.",
+          description: "Page Cleaner will re-extract the current page and refresh the clean reading view.",
           actionLabel: "Clean Page",
         }
       : {
           title: "Run AI analysis?",
-          description: "Recipe Cleaner will send the cleaned page content to the AI summarizer and refresh the analysis result.",
+          description: "Page Cleaner will send the cleaned page content to the AI summarizer and refresh the analysis result.",
           actionLabel: "Summarize",
         };
 
